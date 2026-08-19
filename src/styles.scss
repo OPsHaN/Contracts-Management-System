@@ -1,0 +1,34 @@
+:root {
+  color-scheme: light;
+  font-family: "Beiruti", sans-serif;
+  background: #f8faf7;
+  color: #18211d;
+  direction: rtl;
+    font-size: 20px;
+
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  direction: rtl;
+  text-align: right;
+  background:
+    linear-gradient(135deg, rgba(11, 116, 75, 0.08), transparent 34%),
+    linear-gradient(315deg, rgba(185, 28, 28, 0.08), transparent 32%),
+    #f8faf7;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}

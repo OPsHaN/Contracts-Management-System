@@ -1,0 +1,397 @@
+<main class="app-shell">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">عقود الصيدليات</p>
+      <h1>إدارة التعاقدات</h1>
+    </div>
+
+    <div class="session" *ngIf="session() as currentSession">
+      <span>{{ displayRole(currentSession.role) }}</span>
+      <strong>{{ currentSession.pharmacyName || currentSession.userId }}</strong>
+      <button type="button" class="ghost-button" (click)="logout()">تسجيل الخروج</button>
+    </div>
+  </header>
+
+  <section class="notice" *ngIf="message()">
+    {{ message() }}
+  </section>
+
+  <section class="login-panel" *ngIf="!session()">
+    <div class="login-grid">
+      <div class="login-form-side">
+        <h2>سجّل الدخول بحساب النظام</h2>
+
+        <form class="form-grid" (ngSubmit)="login()">
+          <label>
+            البريد الإلكتروني
+            <input type="email" name="loginEmail" [(ngModel)]="loginForm.email" required dir="ltr" />
+          </label>
+
+          <label>
+            كلمة المرور
+            <input type="password" name="loginPassword" [(ngModel)]="loginForm.password" required dir="ltr" />
+          </label>
+
+          <button type="submit" [disabled]="loading()">
+            {{ loading() ? "جاري تسجيل الدخول..." : "تسجيل الدخول" }}
+          </button>
+        </form>
+      </div>
+
+      <div class="login-info-side">
+        <h2>نظام إدارة تعاقدات الصيدليات</h2>
+        <p>
+          منصة متكاملة لإدارة العقود بين الصيدليات والشركات، بتساعدك تتابع
+          نسب الخصم والضرائب والمصروفات الإدارية ومواعيد تسوية الشيكات بكل
+          سهولة وشفافية.
+        </p>
+        <ul class="login-features">
+          <li>إدارة تعاقدات الشركات بسهولة</li>
+          <li>متابعة الخصومات والضرائب أول بأول</li>
+          <li>تنظيم مواعيد تسوية الشيكات</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="workspace" *ngIf="session()">
+    <section class="content-panel" *ngIf="isSuperAdmin()">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">مدير النظام</p>
+          <h2>حسابات المستخدمين</h2>
+          <button type="button" (click)="showUserForm.set(!showUserForm())" [disabled]="loading()">
+            {{ showUserForm() ? "إلغاء" : "إضافة مستخدم" }}
+          </button>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="ghost-button" (click)="loadUsers()" [disabled]="loading()">تحديث</button>
+        </div>
+      </div>
+
+      <div class="user-form-container" *ngIf="showUserForm()">
+        <form id="userForm" class="form-grid compact" (ngSubmit)="createUser()">
+          <label>
+            البريد الإلكتروني
+            <input type="email" name="userEmail" [(ngModel)]="userForm.email" required dir="ltr" />
+          </label>
+
+          <label>
+            كلمة المرور
+            <input type="password" name="userPassword" [(ngModel)]="userForm.password" required minlength="8" dir="ltr" />
+          </label>
+
+          <label>
+            نوع الحساب
+            <select name="userRole" [ngModel]="userForm.role" (ngModelChange)="onRoleChange($event)">
+              <option value="Pharmacy">صيدلية</option>
+              <option value="SuperAdmin">مدير نظام</option>
+            </select>
+          </label>
+
+          <label *ngIf="userForm.role === 'Pharmacy'">
+            اسم الصيدلية
+            <input type="text" name="pharmacyName" [(ngModel)]="userForm.pharmacyName" required />
+          </label>
+
+          <button type="submit" [disabled]="loading()">إنشاء حساب</button>
+        </form>
+      </div>
+
+      <div class="table-wrap" *ngIf="!showUserForm()">
+        <table>
+          <thead>
+            <tr>
+              <th>البريد الإلكتروني</th>
+              <th>نوع الحساب</th>
+              <th>الصيدلية</th>
+              <th>الحالة</th>
+              <th>تاريخ الإنشاء</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of users()">
+              <td dir="ltr">{{ user.email }}</td>
+              <td>{{ displayRole(user.role) }}</td>
+              <td>{{ user.pharmacyName || "-" }}</td>
+              <td>
+                <span class="status" [class.inactive]="!user.isActive">
+                  {{ user.isActive ? "نشط" : "غير نشط" }}
+                </span>
+              </td>
+              <td>{{ user.createdAt | date: "mediumDate" }}</td>
+              <td>
+                <button type="button" class="text-button" (click)="updateUserStatus(user)">
+                  {{ user.isActive ? "إيقاف" : "تفعيل" }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="content-panel" *ngIf="isPharmacy()">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">الصيدلية</p>
+          <h2>خطوات رفع وعرض المطالبات</h2>
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost-button" (click)="loadCompanies()" [disabled]="loading()">تحديث الشركات</button>
+        </div>
+      </div>
+
+      <nav class="workflow-steps" aria-label="خطوات المطالبات">
+        <button
+          type="button"
+          *ngFor="let step of pharmacySteps; let index = index"
+          [class.active]="activePharmacyStep() === step.key"
+          [class.done]="index === 0 && companies().length > 0"
+          (click)="setPharmacyStep(step.key)"
+        >
+          <span>{{ index + 1 }}</span>
+          <strong>{{ step.label }}</strong>
+          <small>{{ step.hint }}</small>
+        </button>
+      </nav>
+
+      <section class="workflow-step-panel" *ngIf="activePharmacyStep() === 'companies'">
+        <div class="step-heading">
+          <div>
+            <p class="eyebrow">الخطوة الأولى</p>
+            <h3>تسجيل الشركات المتعاقدة</h3>
+          </div>
+          <button type="button" (click)="showCompanyForm.set(!showCompanyForm())" [disabled]="loading()">
+            {{ showCompanyForm() ? "إلغاء" : "إضافة شركة" }}
+          </button>
+        </div>
+
+        <div class="company-form-container" *ngIf="showCompanyForm()">
+          <form id="companyForm" class="form-grid compact" (ngSubmit)="saveCompany()">
+            <label class="wide">
+              اسم الشركة
+              <input type="text" name="companyName" [(ngModel)]="companyForm.name" required />
+            </label>
+
+            <label>
+              خصم المحلي %
+              <input type="number" name="localDiscount" [(ngModel)]="companyForm.localDiscountPercentage" min="0" max="100" required />
+            </label>
+
+            <label>
+              خصم المستورد %
+              <input type="number" name="importedDiscount" [(ngModel)]="companyForm.importedDiscountPercentage" min="0" max="100" required />
+            </label>
+
+            <label>
+              الضريبة %
+              <input type="number" name="tax" [(ngModel)]="companyForm.taxPercentage" min="0" max="100" required />
+            </label>
+
+            <label>
+              المصروفات الإدارية %
+              <input type="number" name="adminExpenses" [(ngModel)]="companyForm.administrativeExpensesPercentage" min="0" max="100" required />
+            </label>
+
+            <label>
+              مدة تسوية الشيك
+              <input type="number" name="settlementDays" [(ngModel)]="companyForm.chequeSettlementPeriodInDays" min="1" required />
+            </label>
+          </form>
+
+          <div class="actions">
+            <button type="submit" form="companyForm" [disabled]="loading()">
+              {{ editingCompanyId() ? "تحديث الشركة" : "إنشاء شركة" }}
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap" *ngIf="!showCompanyForm()">
+          <table>
+            <thead>
+              <tr>
+                <th>اسم الشركة</th>
+                <th>خصم محلي %</th>
+                <th>خصم مستورد %</th>
+                <th>ضريبة %</th>
+                <th>مصروفات إدارية %</th>
+                <th>مدة التسوية (أيام)</th>
+                <th>تاريخ الإنشاء</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let company of companies()">
+                <td>{{ company.name }}</td>
+                <td>{{ company.localDiscountPercentage }}%</td>
+                <td>{{ company.importedDiscountPercentage }}%</td>
+                <td>{{ company.taxPercentage }}%</td>
+                <td>{{ company.administrativeExpensesPercentage }}%</td>
+                <td>{{ company.chequeSettlementPeriodInDays }}</td>
+                <td>{{ company.createdAt | date: "mediumDate" }}</td>
+                <td>
+                  <button type="button" class="text-button" (click)="editCompany(company)">تعديل</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination" *ngIf="!showCompanyForm() && totalPages() > 1">
+          <button type="button" class="ghost-button" [disabled]="pageNumber() <= 1 || loading()" (click)="loadCompanies(pageNumber() - 1)">السابق</button>
+          <span>صفحة {{ pageNumber() }} من {{ totalPages() }}</span>
+          <button type="button" class="ghost-button" [disabled]="pageNumber() >= totalPages() || loading()" (click)="loadCompanies(pageNumber() + 1)">التالي</button>
+        </div>
+
+        <div class="step-actions">
+          <button type="button" (click)="setPharmacyStep('upload')">التالي: رفع ملف المبيعات</button>
+        </div>
+      </section>
+
+      <section class="workflow-step-panel sales-upload-panel" *ngIf="activePharmacyStep() === 'upload'">
+        <div class="sales-upload-header">
+          <div>
+            <p class="eyebrow">الخطوة الثانية</p>
+            <h3>رفع ملف Excel</h3>
+          </div>
+        </div>
+
+        <div class="upload-grid">
+          <label>
+            ملف Excel
+            <input type="file" name="salesFile" accept=".xlsx,.xls" (change)="onSalesFileSelected($event)" />
+          </label>
+
+          <label>
+            الشهر
+            <input type="number" name="claimsMonth" min="1" max="12" [(ngModel)]="claimsFilter.month" />
+          </label>
+
+          <label>
+            السنة
+            <input type="number" name="claimsYear" min="2020" [(ngModel)]="claimsFilter.year" />
+          </label>
+
+          <div class="upload-actions">
+            <button type="button" (click)="uploadSalesBatch()" [disabled]="loading() || batchPolling()">
+              {{ batchPolling() ? "جاري المعالجة..." : "رفع الملف" }}
+            </button>
+            <button type="button" class="ghost-button" (click)="setPharmacyStep('companies')">رجوع</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="workflow-step-panel" *ngIf="activePharmacyStep() === 'processing'">
+        <div class="step-heading">
+          <div>
+            <p class="eyebrow">الخطوة الثالثة</p>
+            <h3>متابعة حالة معالجة الملف</h3>
+          </div>
+          <span class="status" *ngIf="batchDetails()" [class.inactive]="batchDetails()?.status === 'Failed'">
+            {{ displayBatchStatus(batchDetails()?.status || "") }}
+          </span>
+        </div>
+
+        <div class="batch-progress" *ngIf="batchDetails() as batch">
+          <div>
+            <span>رقم العملية</span>
+            <strong dir="ltr">{{ batch.id }}</strong>
+          </div>
+          <div>
+            <span>الصفوف</span>
+            <strong>{{ batch.processedRows }} / {{ batch.totalRows }}</strong>
+          </div>
+          <div>
+            <span>فشل</span>
+            <strong>{{ batch.failedRows }}</strong>
+          </div>
+          <div>
+            <span>تاريخ الرفع</span>
+            <strong>{{ batch.createdAt | date: "medium" }}</strong>
+          </div>
+        </div>
+
+        <div class="empty-state" *ngIf="!batchDetails()">
+          ارفع ملف المبيعات من الخطوة السابقة لبدء المعالجة.
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="ghost-button" (click)="setPharmacyStep('upload')">رجوع للرفع</button>
+          <button type="button" (click)="setPharmacyStep('claims')" [disabled]="batchDetails()?.status !== 'Completed'">
+            التالي: عرض المطالبات
+          </button>
+        </div>
+      </section>
+
+      <section class="workflow-step-panel" *ngIf="activePharmacyStep() === 'claims'">
+        <div class="step-heading">
+          <div>
+            <p class="eyebrow">الخطوة الرابعة</p>
+            <h3>عرض جدول المطالبات</h3>
+          </div>
+          <button type="button" class="ghost-button" (click)="loadClaimsPivot()" [disabled]="pivotLoading()">
+            {{ pivotLoading() ? "جاري التحميل..." : "تحديث البيانات" }}
+          </button>
+        </div>
+
+        <div class="pivot-summary" *ngIf="pivotData() as pivot">
+          <div>
+            <span>عدد الفروع</span>
+            <strong>{{ pivot.branches.length }}</strong>
+          </div>
+          <div>
+            <span>عدد الشركات</span>
+            <strong>{{ pivot.rows.length }}</strong>
+          </div>
+          <div>
+            <span>الإجمالي</span>
+            <strong>{{ formatMoney(pivotGrandTotal()) }}</strong>
+          </div>
+        </div>
+
+        <div class="table-wrap pivot-table-wrap" *ngIf="pivotData() as pivot">
+          <table class="pivot-table">
+            <thead>
+              <tr>
+                <th class="sticky-company">اسم الشركة</th>
+                <th *ngFor="let branch of pivot.branches">{{ branch }}</th>
+                <th>الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of pivot.rows">
+                <td class="sticky-company">{{ row.companyName }}</td>
+                <td *ngFor="let branch of pivot.branches">
+                  {{ formatMoney(row.amountsByBranch[branch] || 0) }}
+                </td>
+                <td class="total-cell">{{ formatMoney(row.total) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="empty-state" *ngIf="!pivotData() && !pivotLoading()">
+          لا توجد بيانات معروضة بعد. اضغط تحديث البيانات أو ارفع ملف جديد.
+        </div>
+      </section>
+    </section>
+  </section>
+
+  <footer class="bottombar">
+    <div class="footer-content">
+      <p class="eyebrow">
+        جميع الحقوق محفوظة لـ
+        <a href="https://opshan.github.io/home/#Welcome" target="_blank" rel="noopener noreferrer">
+          شركة أوبشن لتطوير البرمجيات
+        </a>
+        © {{ currentYear() }}
+      </p>
+      <p class="mt-8 text-center text-sm font-medium text-slate-400">
+        Software Version 1.0.0
+      </p>
+    </div>
+  </footer>
+</main>
