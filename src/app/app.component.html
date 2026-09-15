@@ -7,29 +7,79 @@
 
     <div class="session" *ngIf="session() as currentSession">
       <span>{{ displayRole(currentSession.role) }}</span>
-      <strong>{{ currentSession.pharmacyName || currentSession.userId }}</strong>
-      <button type="button" class="ghost-button" (click)="logout()">تسجيل الخروج</button>
+      <strong>{{
+        currentSession.pharmacyName || currentSession.userId
+      }}</strong>
+      <button type="button" class="ghost-button" (click)="logout()">
+        تسجيل الخروج
+      </button>
     </div>
   </header>
 
   <section class="notice" *ngIf="message()">
-    {{ message() }}
+    <span>{{ message() }}</span>
+    <button
+      type="button"
+      class="notice-close"
+      aria-label="إغلاق التنبيه"
+      (click)="closeNotice()"
+    >
+      ×
+    </button>
   </section>
 
   <section class="login-panel" *ngIf="!session()">
     <div class="login-grid">
+
+            <div class="login-info-side">
+        <h2>نظام إدارة تعاقدات الصيدليات</h2>
+        <p>
+          منصة متكاملة لإدارة العقود بين الصيدليات والشركات، بتساعدك تتابع نسب
+          الخصم والضرائب والمصروفات الإدارية ومواعيد تسوية الشيكات بكل سهولة
+          وشفافية.
+        </p>
+        <ul class="login-features">
+          <li>إدارة تعاقدات الشركات بسهولة</li>
+          <li>متابعة الخصومات والضرائب أول بأول</li>
+          <li>تنظيم مواعيد تسوية الشيكات</li>
+        </ul>
+      </div>
+
       <div class="login-form-side">
         <h2>سجّل الدخول بحساب النظام</h2>
 
         <form class="form-grid" (ngSubmit)="login()">
           <label>
             البريد الإلكتروني
-            <input type="email" name="loginEmail" [(ngModel)]="loginForm.email" required dir="ltr" />
+            <input
+              type="email"
+              name="loginEmail"
+              [(ngModel)]="loginForm.email"
+              required
+              dir="ltr"
+            />
           </label>
 
           <label>
             كلمة المرور
-            <input type="password" name="loginPassword" [(ngModel)]="loginForm.password" required dir="ltr" />
+            <span class="password-field">
+              <input
+                [type]="showLoginPassword() ? 'text' : 'password'"
+                name="loginPassword"
+                [(ngModel)]="loginForm.password"
+                required
+                dir="ltr"
+              />
+            </span>
+            <span class="password-checkbox">
+              <input
+                type="checkbox"
+                name="showLoginPassword"
+                [ngModel]="showLoginPassword()"
+                (ngModelChange)="showLoginPassword.set($event)"
+              />
+              إظهار كلمة المرور
+            </span>
           </label>
 
           <button type="submit" [disabled]="loading()">
@@ -38,19 +88,7 @@
         </form>
       </div>
 
-      <div class="login-info-side">
-        <h2>نظام إدارة تعاقدات الصيدليات</h2>
-        <p>
-          منصة متكاملة لإدارة العقود بين الصيدليات والشركات، بتساعدك تتابع
-          نسب الخصم والضرائب والمصروفات الإدارية ومواعيد تسوية الشيكات بكل
-          سهولة وشفافية.
-        </p>
-        <ul class="login-features">
-          <li>إدارة تعاقدات الشركات بسهولة</li>
-          <li>متابعة الخصومات والضرائب أول بأول</li>
-          <li>تنظيم مواعيد تسوية الشيكات</li>
-        </ul>
-      </div>
+
     </div>
   </section>
 
@@ -60,31 +98,60 @@
         <div>
           <p class="eyebrow">مدير النظام</p>
           <h2>حسابات المستخدمين</h2>
-          <button type="button" (click)="showUserForm.set(!showUserForm())" [disabled]="loading()">
+          <button
+            type="button"
+            (click)="showUserForm.set(!showUserForm())"
+            [disabled]="loading()"
+          >
             {{ showUserForm() ? "إلغاء" : "إضافة مستخدم" }}
           </button>
         </div>
 
-        <div class="actions">
-          <button type="button" class="ghost-button" (click)="loadUsers()" [disabled]="loading()">تحديث</button>
-        </div>
       </div>
 
       <div class="user-form-container" *ngIf="showUserForm()">
         <form id="userForm" class="form-grid compact" (ngSubmit)="createUser()">
           <label>
             البريد الإلكتروني
-            <input type="email" name="userEmail" [(ngModel)]="userForm.email" required dir="ltr" />
+            <input
+              type="email"
+              name="userEmail"
+              [(ngModel)]="userForm.email"
+              required
+              dir="ltr"
+            />
           </label>
 
           <label>
             كلمة المرور
-            <input type="password" name="userPassword" [(ngModel)]="userForm.password" required minlength="8" dir="ltr" />
+            <span class="password-field">
+              <input
+                [type]="showUserPassword() ? 'text' : 'password'"
+                name="userPassword"
+                [(ngModel)]="userForm.password"
+                required
+                minlength="8"
+                dir="ltr"
+              />
+            </span>
+            <span class="password-checkbox">
+              <input
+                type="checkbox"
+                name="showUserPassword"
+                [ngModel]="showUserPassword()"
+                (ngModelChange)="showUserPassword.set($event)"
+              />
+              إظهار كلمة المرور
+            </span>
           </label>
 
           <label>
             نوع الحساب
-            <select name="userRole" [ngModel]="userForm.role" (ngModelChange)="onRoleChange($event)">
+            <select
+              name="userRole"
+              [ngModel]="userForm.role"
+              (ngModelChange)="onRoleChange($event)"
+            >
               <option value="Pharmacy">صيدلية</option>
               <option value="SuperAdmin">مدير نظام</option>
             </select>
@@ -92,10 +159,96 @@
 
           <label *ngIf="userForm.role === 'Pharmacy'">
             اسم الصيدلية
-            <input type="text" name="pharmacyName" [(ngModel)]="userForm.pharmacyName" required />
+            <input
+              type="text"
+              name="pharmacyName"
+              [(ngModel)]="userForm.pharmacyName"
+              required
+            />
           </label>
 
           <button type="submit" [disabled]="loading()">إنشاء حساب</button>
+        </form>
+      </div>
+
+      <div class="user-form-container modal-form-container" *ngIf="showReviewerForm()">
+        <button type="button" class="modal-close" aria-label="إغلاق نموذج المراجع" (click)="closeReviewerForm()">×</button>
+        <form
+          id="adminReviewerForm"
+          class="form-grid compact"
+          (ngSubmit)="createReviewer()"
+        >
+          <label>
+            البريد الإلكتروني للمراجع
+            <input
+              type="email"
+              name="adminReviewerEmail"
+              [(ngModel)]="reviewerForm.email"
+              required
+              dir="ltr"
+            />
+          </label>
+
+          <label>
+            كلمة مرور المراجع
+            <span class="password-field">
+              <input
+                [type]="showUserPassword() ? 'text' : 'password'"
+                name="adminReviewerPassword"
+                [(ngModel)]="reviewerForm.password"
+                required
+                minlength="8"
+                dir="ltr"
+              />
+            </span>
+            <span class="password-checkbox">
+              <input
+                type="checkbox"
+                name="showAdminReviewerPassword"
+                [ngModel]="showUserPassword()"
+                (ngModelChange)="showUserPassword.set($event)"
+              />
+              إظهار كلمة المرور
+            </span>
+          </label>
+
+          <label>
+            نوع الحساب
+            <select
+              name="adminReviewerRole"
+              [(ngModel)]="reviewerForm.role"
+              disabled
+            >
+              <option value="ClaimsReviewer">مراجع مطالبات</option>
+            </select>
+          </label>
+
+          <label>
+            اسم الصيدلية
+            <select
+              name="adminReviewerPharmacyName"
+              [(ngModel)]="reviewerForm.pharmacyName"
+            >
+              <option [ngValue]="null">بدون صيدلية</option>
+              <option
+                *ngFor="let pharmacyName of pharmacyOptions()"
+                [ngValue]="pharmacyName"
+              >
+                {{ pharmacyName }}
+              </option>
+            </select>
+          </label>
+
+          <label class="password-checkbox reviewer-active-field">
+            <input
+              type="checkbox"
+              name="adminReviewerIsActive"
+              [(ngModel)]="reviewerForm.isActive"
+            />
+            المراجع نشط
+          </label>
+
+          <button type="submit" [disabled]="loading()">إنشاء المراجع</button>
         </form>
       </div>
 
@@ -123,7 +276,11 @@
               </td>
               <td>{{ user.createdAt | date: "mediumDate" }}</td>
               <td>
-                <button type="button" class="text-button" (click)="updateUserStatus(user)">
+                <button
+                  type="button"
+                  class="text-button"
+                  (click)="updateUserStatus(user)"
+                >
                   {{ user.isActive ? "إيقاف" : "تفعيل" }}
                 </button>
               </td>
@@ -133,72 +290,210 @@
       </div>
     </section>
 
-    <section class="content-panel" *ngIf="isPharmacy()">
+    <section class="content-panel" *ngIf="isPharmacy() || isClaimsReviewer()">
       <div class="panel-heading">
         <div>
-          <p class="eyebrow">الصيدلية</p>
-          <h2>خطوات رفع وعرض المطالبات</h2>
+          <p class="eyebrow">
+            {{ isClaimsReviewer() ? "مراجع المطالبات" : "الصيدلية" }}
+          </p>
+          <h2>
+            {{
+              isClaimsReviewer()
+                ? "مراجعة مطالبات الشركات"
+                : "خطوات رفع وعرض المطالبات"
+            }}
+          </h2>
         </div>
         <div class="actions">
-          <button type="button" class="ghost-button" (click)="loadCompanies()" [disabled]="loading()">تحديث الشركات</button>
+          <button
+            *ngIf="isPharmacy()"
+            type="button"
+            class="ghost-button"
+            (click)="toggleReviewerTable()"
+            [disabled]="loading()"
+          >
+            {{ showReviewerForm() ? "إلغاء إضافة مراجع" : "إضافة مراجع" }}
+          </button>
         </div>
       </div>
 
-      <nav class="workflow-steps" aria-label="خطوات المطالبات">
-        <button
-          type="button"
-          *ngFor="let step of pharmacySteps; let index = index"
-          [class.active]="activePharmacyStep() === step.key"
-          [class.done]="index === 0 && companies().length > 0"
-          (click)="setPharmacyStep(step.key)"
+      <div class="user-form-container modal-form-container" *ngIf="showReviewerForm()">
+        <button type="button" class="modal-close" aria-label="إغلاق نموذج المراجع" (click)="closeReviewerForm()">×</button>
+        <form
+          id="pharmacyReviewerForm"
+          class="form-grid compact"
+          (ngSubmit)="createReviewer()"
         >
-          <span>{{ index + 1 }}</span>
-          <strong>{{ step.label }}</strong>
-          <small>{{ step.hint }}</small>
-        </button>
+          <label>
+            البريد الإلكتروني للمراجع
+            <input
+              type="email"
+              name="pharmacyReviewerEmail"
+              [(ngModel)]="reviewerForm.email"
+              required
+              dir="ltr"
+            />
+          </label>
+
+          <label>
+            كلمة مرور المراجع
+            <span class="password-field">
+              <input
+                [type]="showUserPassword() ? 'text' : 'password'"
+                name="pharmacyReviewerPassword"
+                [(ngModel)]="reviewerForm.password"
+                required
+                minlength="8"
+                dir="ltr"
+              />
+            </span>
+            <span class="password-checkbox">
+              <input
+                type="checkbox"
+                name="showPharmacyReviewerPassword"
+                [ngModel]="showUserPassword()"
+                (ngModelChange)="showUserPassword.set($event)"
+              />
+              إظهار كلمة المرور
+            </span>
+          </label>
+
+          <label>
+            اسم الصيدلية
+            <input
+              type="text"
+              name="pharmacyReviewerName"
+              [ngModel]="reviewerForm.pharmacyName"
+              readonly
+            />
+          </label>
+
+          <button type="submit" [disabled]="loading()">إنشاء المراجع</button>
+        </form>
+      </div>
+
+      <nav class="workflow-steps" aria-label="خطوات المطالبات">
+        <ng-container *ngFor="let step of pharmacySteps; let index = index">
+          <button
+            *ngIf="canShowStep(step.key)"
+            type="button"
+            [class.active]="activePharmacyStep() === step.key"
+            [class.done]="index === 0 && companies().length > 0"
+            (click)="setPharmacyStep(step.key)"
+          >
+            <span>{{ index + 1 }}</span>
+            <strong>{{ step.label }}</strong>
+            <small>{{ step.hint }}</small>
+          </button>
+        </ng-container>
       </nav>
 
-      <section class="workflow-step-panel" *ngIf="activePharmacyStep() === 'companies'">
+      <section
+        class="workflow-step-panel"
+        *ngIf="isPharmacy() && activePharmacyStep() === 'companies'"
+      >
         <div class="step-heading">
-          <div>
+          <div class="title">
             <p class="eyebrow">الخطوة الأولى</p>
             <h3>تسجيل الشركات المتعاقدة</h3>
           </div>
-          <button type="button" (click)="showCompanyForm.set(!showCompanyForm())" [disabled]="loading()">
-            {{ showCompanyForm() ? "إلغاء" : "إضافة شركة" }}
-          </button>
+          <div class="actions">
+            <button
+              type="button"
+              (click)="showCompanyForm.set(!showCompanyForm())"
+              [disabled]="loading()"
+            >
+              {{ showCompanyForm() ? "إلغاء" : "إضافة شركة" }}
+            </button>
+          </div>
         </div>
 
-        <div class="company-form-container" *ngIf="showCompanyForm()">
-          <form id="companyForm" class="form-grid compact" (ngSubmit)="saveCompany()">
+        <div class="company-form-container modal-form-container" *ngIf="showCompanyForm()">
+          <button type="button" class="modal-close" aria-label="إغلاق نموذج الشركة" (click)="closeCompanyForm()">×</button>
+          <form
+            id="companyForm"
+            class="form-grid compact"
+            (ngSubmit)="saveCompany()"
+          >
             <label class="wide">
               اسم الشركة
-              <input type="text" name="companyName" [(ngModel)]="companyForm.name" required />
+              <input
+                type="text"
+                name="companyName"
+                [(ngModel)]="companyForm.name"
+                required
+              />
+            </label>
+
+            <label>
+              الخصم %
+              <input
+                type="number"
+                name="discount"
+                [(ngModel)]="companyForm.Discount"
+                min="0"
+                max="100"
+                required
+              />
             </label>
 
             <label>
               خصم المحلي %
-              <input type="number" name="localDiscount" [(ngModel)]="companyForm.localDiscountPercentage" min="0" max="100" required />
+              <input
+                type="number"
+                name="localDiscount"
+                [(ngModel)]="companyForm.localDiscountPercentage"
+                min="0"
+                max="100"
+                required
+              />
             </label>
 
             <label>
               خصم المستورد %
-              <input type="number" name="importedDiscount" [(ngModel)]="companyForm.importedDiscountPercentage" min="0" max="100" required />
+              <input
+                type="number"
+                name="importedDiscount"
+                [(ngModel)]="companyForm.importedDiscountPercentage"
+                min="0"
+                max="100"
+                required
+              />
             </label>
 
             <label>
               الضريبة %
-              <input type="number" name="tax" [(ngModel)]="companyForm.taxPercentage" min="0" max="100" required />
+              <input
+                type="number"
+                name="tax"
+                [(ngModel)]="companyForm.taxPercentage"
+                min="0"
+                max="100"
+                required
+              />
             </label>
 
             <label>
               المصروفات الإدارية %
-              <input type="number" name="adminExpenses" [(ngModel)]="companyForm.administrativeExpensesPercentage" min="0" max="100" required />
+              <input
+                type="number"
+                name="adminExpenses"
+                [(ngModel)]="companyForm.administrativeExpensesPercentage"
+                min="0"
+                max="100"
+                required
+              />
             </label>
 
             <label>
               مدة تسوية الشيك
-              <input type="number" name="settlementDays" [(ngModel)]="companyForm.chequeSettlementPeriodInDays" min="1" required />
+              <input
+                type="number"
+                name="settlementDays"
+                [(ngModel)]="companyForm.chequeSettlementPeriodInDays"
+                min="1"
+                required
+              />
             </label>
           </form>
 
@@ -209,11 +504,12 @@
           </div>
         </div>
 
-        <div class="table-wrap" *ngIf="!showCompanyForm()">
+        <div class="table-wrap company-table-wrap">
           <table>
             <thead>
               <tr>
                 <th>اسم الشركة</th>
+                <th>الخصم %</th>
                 <th>خصم محلي %</th>
                 <th>خصم مستورد %</th>
                 <th>ضريبة %</th>
@@ -224,8 +520,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let company of companies()">
+              <tr *ngFor="let company of companiesRespons()">
                 <td>{{ company.name }}</td>
+                <td>{{ company.discount }}%</td>
                 <td>{{ company.localDiscountPercentage }}%</td>
                 <td>{{ company.importedDiscountPercentage }}%</td>
                 <td>{{ company.taxPercentage }}%</td>
@@ -233,27 +530,126 @@
                 <td>{{ company.chequeSettlementPeriodInDays }}</td>
                 <td>{{ company.createdAt | date: "mediumDate" }}</td>
                 <td>
-                  <button type="button" class="text-button" (click)="editCompany(company)">تعديل</button>
+                  <div class="company-row-actions">
+                    <button
+                      type="button"
+                      class="text-button"
+                      (click)="editCompany(company)"
+                    >
+                      تعديل
+                    </button>
+                    <button
+                      type="button"
+                      class="text-button"
+                      (click)="openDepartmentsModal(company)"
+                    >
+                      إضافة إدارة
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div class="pagination" *ngIf="!showCompanyForm() && totalPages() > 1">
-          <button type="button" class="ghost-button" [disabled]="pageNumber() <= 1 || loading()" (click)="loadCompanies(pageNumber() - 1)">السابق</button>
+        <div class="claim-review-modal" *ngIf="showDepartmentsModal()">
+          <section class="mini-panel departments-modal">
+            <div class="modal-heading">
+              <div>
+                <p class="eyebrow">إدارات الشركة</p>
+                <h3>{{ selectedCompanyForDepartments()?.name }}</h3>
+              </div>
+              <button
+                type="button"
+                class="modal-close"
+                aria-label="إغلاق إدارات الشركة"
+                (click)="closeDepartmentsModal()"
+              >
+                ×
+              </button>
+            </div>
+
+            <form class="department-create-form" (ngSubmit)="createDepartment()">
+              <label>
+                اسم الإدارة
+                <input
+                  type="text"
+                  name="departmentName"
+                  [(ngModel)]="departmentForm.name"
+                  required
+                />
+              </label>
+              <button type="submit" [disabled]="loading()">
+                إضافة إدارة
+              </button>
+            </form>
+
+            <div class="table-wrap departments-table-wrap" *ngIf="departments().length">
+              <table>
+                <thead>
+                  <tr>
+                    <th>الإدارة</th>
+                    <th>الإجراء</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let department of departments()">
+                    <td>{{ department.name }}</td>
+                    <td>
+                      <button
+                        type="button"
+                        class="text-button delete-button"
+                        (click)="deleteDepartment(department)"
+                        [disabled]="loading()"
+                      >
+                        حذف
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="empty-state" *ngIf="!departments().length">
+              لا توجد إدارات مضافة لهذه الشركة.
+            </div>
+          </section>
+        </div>
+
+        <div class="pagination" *ngIf="totalPages() > 1">
+          <button
+            type="button"
+            class="ghost-button"
+            [disabled]="pageNumber() <= 1 || loading()"
+            (click)="loadCompanies(pageNumber() - 1)"
+          >
+            السابق
+          </button>
           <span>صفحة {{ pageNumber() }} من {{ totalPages() }}</span>
-          <button type="button" class="ghost-button" [disabled]="pageNumber() >= totalPages() || loading()" (click)="loadCompanies(pageNumber() + 1)">التالي</button>
+          <button
+            type="button"
+            class="ghost-button"
+            [disabled]="pageNumber() >= totalPages() || loading()"
+            (click)="loadCompanies(pageNumber() + 1)"
+          >
+            التالي
+          </button>
         </div>
 
         <div class="step-actions">
-          <button type="button" (click)="setPharmacyStep('upload')">التالي: رفع ملف المبيعات</button>
+          <button type="button" (click)="setPharmacyStep('upload')">
+            التالي: رفع ملف المبيعات
+          </button>
         </div>
       </section>
 
-      <section class="workflow-step-panel sales-upload-panel" *ngIf="activePharmacyStep() === 'upload'">
+      <section
+        class="workflow-step-panel sales-upload-panel"
+        *ngIf="isPharmacy() && activePharmacyStep() === 'upload'"
+      >
         <div class="sales-upload-header">
           <div>
+
             <p class="eyebrow">الخطوة الثانية</p>
             <h3>رفع ملف Excel</h3>
           </div>
@@ -262,119 +658,839 @@
         <div class="upload-grid">
           <label>
             ملف Excel
-            <input type="file" name="salesFile" accept=".xlsx,.xls" (change)="onSalesFileSelected($event)" />
+            <input
+              type="file"
+              name="salesFile"
+              accept=".xlsx,.xls"
+              (change)="onSalesFileSelected($event)"
+            />
           </label>
 
+          <div class="upload-actions">
+            <button
+              type="button"
+              (click)="uploadSalesBatch()"
+              [disabled]="loading() || batchPolling()"
+            >
+              {{
+                loading() || batchPolling() ? "جاري رفع الملف..." : "رفع الملف"
+              }}
+            </button>
+            <button
+              type="button"
+              class="ghost-button"
+              (click)="setPharmacyStep('companies')"
+            >
+              رجوع
+            </button>
+          </div>
+        </div>
+
+        <div class="upload-file-name" *ngIf="selectedSalesFile() as file">
+          الملف المختار: <strong>{{ file.name }}</strong>
+        </div>
+
+        <div
+          class="processing-card upload-status"
+          *ngIf="loading() || batchPolling()"
+        >
+          <div class="processing-title">
+            <span class="spinner"></span>
+            <strong>{{
+              batchPolling() ? "جاري التأكد من رفع الملف" : "جاري رفع الملف"
+            }}</strong>
+          </div>
+          <p>برجاء الانتظار حتى يتم التأكد من إجمالي الصفوف المرفوعة.</p>
+          <div class="progress-track">
+            <span [style.width.%]="batchProgressPercent()"></span>
+          </div>
+        </div>
+
+        <div
+          class="processing-card completed"
+          *ngIf="batchDetails()?.status === 'Completed'"
+        >
+          <div class="processing-title">
+            <span class="checkmark">✓</span>
+            <strong>تم رفع الملف بنجاح</strong>
+          </div>
+
+          <div class="batch-progress" *ngIf="batchDetails() as batch">
+            <div>
+              <span>إجمالي الصفوف</span>
+              <strong>{{ batch.totalRows }}</strong>
+            </div>
+            <div>
+              <span>تمت معالجتها</span>
+              <strong>{{ batch.processedRows }}</strong>
+            </div>
+            <div>
+              <span>فشلت</span>
+              <strong>{{ batch.failedRows }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="processing-card failed"
+          *ngIf="batchDetails()?.status === 'Failed'"
+        >
+          <div class="processing-title">
+            <span class="failed-icon">!</span>
+            <strong>فشلت معالجة الملف</strong>
+          </div>
+          <p>{{ batchDetails()?.errorLog || "حدث خطأ أثناء معالجة الملف." }}</p>
+        </div>
+
+        <ng-container *ngIf="batchDetails() as batch">
+          <div class="batch-progress" *ngIf="batch.status === 'Completed'">
+            <div>
+              <span>رقم العملية</span>
+              <strong dir="ltr">{{ batch.id }}</strong>
+            </div>
+            <div>
+              <span>تاريخ الرفع</span>
+              <strong>{{ batch.createdAt | date: "medium" }}</strong>
+            </div>
+            <div *ngIf="batch.completedAt">
+              <span>تاريخ الاكتمال</span>
+              <strong>{{ batch.completedAt | date: "medium" }}</strong>
+            </div>
+          </div>
+        </ng-container>
+
+        <div class="step-actions">
+          <button
+            type="button"
+            (click)="setPharmacyStep('claims-summary')"
+            [disabled]="batchDetails()?.status !== 'Completed'"
+          >
+            التالي: ملخص الشركات
+          </button>
+        </div>
+      </section>
+
+      <section
+        class="workflow-step-panel"
+        *ngIf="isPharmacy() && activePharmacyStep() === 'claims-summary'"
+      >
+        <div class="step-heading">
+          <div>
+            <p class="eyebrow">الخطوة الثالثة</p>
+            <h3>ملخص الشركات والصيدليات</h3>
+          </div>
+        </div>
+
+        <form class="claims-filter-bar" (ngSubmit)="applyClaimsFilters()">
           <label>
             الشهر
-            <input type="number" name="claimsMonth" min="1" max="12" [(ngModel)]="claimsFilter.month" />
+            <input
+              type="number"
+              name="claimMonth"
+              min="1"
+              max="12"
+              [(ngModel)]="claimsFilter.month"
+            />
           </label>
 
           <label>
             السنة
-            <input type="number" name="claimsYear" min="2020" [(ngModel)]="claimsFilter.year" />
+            <input
+              type="number"
+              name="claimYear"
+              min="2020"
+              [(ngModel)]="claimsFilter.year"
+            />
           </label>
 
           <div class="upload-actions">
-            <button type="button" (click)="uploadSalesBatch()" [disabled]="loading() || batchPolling()">
-              {{ batchPolling() ? "جاري المعالجة..." : "رفع الملف" }}
+            <button
+              type="submit"
+              [disabled]="pivotLoading() || claimsLoading()"
+            >
+              {{
+                pivotLoading() || claimsLoading()
+                  ? "جاري التحميل..."
+                  : "تطبيق الشهر والسنة"
+              }}
             </button>
-            <button type="button" class="ghost-button" (click)="setPharmacyStep('companies')">رجوع</button>
+            <button
+              type="button"
+              class="ghost-button"
+              (click)="generateClaims()"
+              [disabled]="loading()"
+            >
+              توليد المطالبات
+            </button>
           </div>
-        </div>
-      </section>
+        </form>
 
-      <section class="workflow-step-panel" *ngIf="activePharmacyStep() === 'processing'">
-        <div class="step-heading">
-          <div>
-            <p class="eyebrow">الخطوة الثالثة</p>
-            <h3>متابعة حالة معالجة الملف</h3>
-          </div>
-          <span class="status" *ngIf="batchDetails()" [class.inactive]="batchDetails()?.status === 'Failed'">
-            {{ displayBatchStatus(batchDetails()?.status || "") }}
-          </span>
-        </div>
+        <form
+          class="company-filter-bar"
+          *ngIf="pivotData()"
+          (ngSubmit)="applyCompanyFilter()"
+        >
+          <label>
+            اسم الشركة
+            <select
+              name="claimCompanyName"
+              [(ngModel)]="claimsFilter.companyName"
+            >
+              <option value="">كل الشركات الموجودة في الملف</option>
+              <option value="" disabled *ngIf="!companyOptions().length">
+                لا توجد شركات من الملف حتى الآن
+              </option>
+              <option
+                *ngFor="let companyName of companyOptions()"
+                [value]="companyName"
+              >
+                {{ companyName }}
+              </option>
+            </select>
+          </label>
 
-        <div class="batch-progress" *ngIf="batchDetails() as batch">
-          <div>
-            <span>رقم العملية</span>
-            <strong dir="ltr">{{ batch.id }}</strong>
-          </div>
-          <div>
-            <span>الصفوف</span>
-            <strong>{{ batch.processedRows }} / {{ batch.totalRows }}</strong>
-          </div>
-          <div>
-            <span>فشل</span>
-            <strong>{{ batch.failedRows }}</strong>
-          </div>
-          <div>
-            <span>تاريخ الرفع</span>
-            <strong>{{ batch.createdAt | date: "medium" }}</strong>
-          </div>
-        </div>
+          <button type="submit" [disabled]="claimsLoading()">
+            تطبيق فلتر الشركة
+          </button>
+        </form>
 
-        <div class="empty-state" *ngIf="!batchDetails()">
-          ارفع ملف المبيعات من الخطوة السابقة لبدء المعالجة.
-        </div>
+        <ng-container
+          *ngIf="!appliedCompanyName().trim(); else selectedCompanyDetails"
+        >
+          <div class="pivot-summary" *ngIf="pivotData() as pivot">
+            <div>
+              <span>عدد الفروع</span>
+              <strong>{{ pivot.branches.length }}</strong>
+            </div>
+            <div>
+              <span>عدد الشركات</span>
+              <strong>{{ pivot.rows.length }}</strong>
+            </div>
+            <div>
+              <span>الإجمالي</span>
+              <strong>{{ formatMoney(pivotGrandTotal()) }}</strong>
+            </div>
+          </div>
+
+          <div class="table-wrap pivot-table-wrap" *ngIf="pivotData() as pivot">
+            <table class="pivot-table">
+              <thead>
+                <tr>
+                  <th class="sticky-company">اسم الشركة</th>
+                  <th *ngFor="let branch of pivot.branches">{{ branch }}</th>
+                  <th>الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of filteredPivotRows()">
+                  <td class="sticky-company">{{ row.companyName }}</td>
+                  <td *ngFor="let branch of pivot.branches">
+                    {{ formatMoney(row.amountsByBranch[branch] || 0) }}
+                  </td>
+                  <td class="total-cell">{{ formatMoney(row.total) }}</td>
+                </tr>
+              </tbody>
+              <tfoot *ngIf="pivotTotalsRow() as totals">
+                <tr>
+                  <td class="sticky-company">الإجمالي</td>
+                  <td *ngFor="let branch of pivot.branches">
+                    {{ formatMoney(totals.amountsByBranch[branch] || 0) }}
+                  </td>
+                  <td class="total-cell">
+                    {{ formatMoney(totals.grandTotal) }}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="empty-state" *ngIf="!pivotData() && !pivotLoading()">
+            لا توجد بيانات معروضة بعد. اضغط تحديث البيانات أو ارفع ملف جديد.
+          </div>
+        </ng-container>
+
+        <ng-template #selectedCompanyDetails>
+          <div class="insights-grid" *ngIf="companyInsights() as insights">
+            <article>
+              <span>الشركة</span>
+              <strong>{{ insights.companyName }}</strong>
+            </article>
+            <article>
+              <span>عدد الروشتات</span>
+              <strong>{{ insights.prescriptionsCount }}</strong>
+            </article>
+            <article>
+              <span>المتبقي</span>
+              <strong>{{ formatMoney(insights.totalRemainingAmount) }}</strong>
+            </article>
+            <article>
+              <span>محلي</span>
+              <strong>{{ formatMoney(insights.totalLocalItemsAmount) }}</strong>
+            </article>
+            <article>
+              <span>مستورد</span>
+              <strong>{{
+                formatMoney(insights.totalImportedItemsAmount)
+              }}</strong>
+            </article>
+            <article>
+              <span>بعد الخصم</span>
+              <strong>{{ formatMoney(insights.amountAfterDiscount) }}</strong>
+            </article>
+          </div>
+        </ng-template>
 
         <div class="step-actions">
-          <button type="button" class="ghost-button" (click)="setPharmacyStep('upload')">رجوع للرفع</button>
-          <button type="button" (click)="setPharmacyStep('claims')" [disabled]="batchDetails()?.status !== 'Completed'">
-            التالي: عرض المطالبات
+          <button
+            type="button"
+            (click)="setPharmacyStep('claims')"
+            [disabled]="!claims().length"
+          >
+            التالي: مطالبات الشركات
           </button>
         </div>
       </section>
 
-      <section class="workflow-step-panel" *ngIf="activePharmacyStep() === 'claims'">
+      <section
+        class="workflow-step-panel"
+        *ngIf="activePharmacyStep() === 'claims'"
+      >
         <div class="step-heading">
           <div>
             <p class="eyebrow">الخطوة الرابعة</p>
-            <h3>عرض جدول المطالبات</h3>
+            <h3>مطالبات الشركات بعد الخصم</h3>
           </div>
-          <button type="button" class="ghost-button" (click)="loadClaimsPivot()" [disabled]="pivotLoading()">
-            {{ pivotLoading() ? "جاري التحميل..." : "تحديث البيانات" }}
+        </div>
+
+        <form
+          class="claims-filter-bar"
+          *ngIf="isClaimsReviewer()"
+          (ngSubmit)="loadClaims()"
+        >
+          <label>
+            الشهر
+            <input
+              type="number"
+              name="reviewerClaimMonth"
+              min="1"
+              max="12"
+              [(ngModel)]="claimsFilter.month"
+            />
+          </label>
+
+          <label>
+            السنة
+            <input
+              type="number"
+              name="reviewerClaimYear"
+              min="2020"
+              [(ngModel)]="claimsFilter.year"
+            />
+          </label>
+
+          <button type="submit" [disabled]="claimsLoading()">
+            {{ claimsLoading() ? "جاري التحميل..." : "تحميل المطالبات" }}
           </button>
-        </div>
+        </form>
 
-        <div class="pivot-summary" *ngIf="pivotData() as pivot">
-          <div>
-            <span>عدد الفروع</span>
-            <strong>{{ pivot.branches.length }}</strong>
-          </div>
-          <div>
-            <span>عدد الشركات</span>
-            <strong>{{ pivot.rows.length }}</strong>
-          </div>
-          <div>
-            <span>الإجمالي</span>
-            <strong>{{ formatMoney(pivotGrandTotal()) }}</strong>
-          </div>
-        </div>
-
-        <div class="table-wrap pivot-table-wrap" *ngIf="pivotData() as pivot">
-          <table class="pivot-table">
+        <div class="table-wrap claims-table-wrap" *ngIf="claims().length">
+          <table>
             <thead>
               <tr>
-                <th class="sticky-company">اسم الشركة</th>
-                <th *ngFor="let branch of pivot.branches">{{ branch }}</th>
-                <th>الإجمالي</th>
+                <th>الشركة</th>
+                <th>الشهر</th>
+                <th>السنة</th>
+                <th>المبلغ بعد الخصم</th>
+                <th>المبلغ المصحح</th>
+                <th>الحالة</th>
+                <th>مراجعة</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of pivot.rows">
-                <td class="sticky-company">{{ row.companyName }}</td>
-                <td *ngFor="let branch of pivot.branches">
-                  {{ formatMoney(row.amountsByBranch[branch] || 0) }}
+              <tr *ngFor="let claim of claims()">
+                <td>{{ claim.companyName }}</td>
+                <td>{{ claim.month }}</td>
+                <td>{{ claim.year }}</td>
+                <td>{{ formatMoney(claim.claimAmountAfterDiscount) }}</td>
+                <td>
+                  {{
+                    claim.correctedAmount === null
+                      ? "-"
+                      : formatMoney(claim.correctedAmount)
+                  }}
                 </td>
-                <td class="total-cell">{{ formatMoney(row.total) }}</td>
+                <td>{{ claim.status }}</td>
+                <td>
+                  <div class="claim-actions">
+                    <button
+                      type="button"
+                      class="text-button"
+                      [class.review-submitted]="
+                        isPharmacy() && claim.status === 'Pending'
+                      "
+                      [class.reviewer-pending]="
+                        isClaimsReviewer() && claim.status === 'Pending'
+                      "
+                      [disabled]="claim.status === 'Reviewed'"
+                      (click)="selectClaim(claim)"
+                    >
+                      {{
+                        claim.status === "Reviewed"
+                          ? "تمت المراجعة"
+                          : isPharmacy() && claim.status === "Pending"
+                            ? "تم الإرسال للمراجعة"
+                            : "مراجعة"
+                      }}
+                    </button>
+
+                    <button
+                      *ngIf="isPharmacy() && claim.status === 'Reviewed'"
+                      type="button"
+                      class="text-button edit-button"
+                      (click)="editClaimReview(claim)"
+                    >
+                      تعديل
+                    </button>
+
+                    <button
+                      *ngIf="isPharmacy() && claim.status === 'Reviewed' && !hasChequeForClaim(claim)"
+                      type="button"
+                      class="text-button cheque-button"
+                      (click)="prepareCheque(claim)"
+                    >
+                      تجهيز الشيك
+                    </button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div class="empty-state" *ngIf="!pivotData() && !pivotLoading()">
-          لا توجد بيانات معروضة بعد. اضغط تحديث البيانات أو ارفع ملف جديد.
+        <div class="empty-state" *ngIf="!claimsLoading() && !claims().length">
+          لا توجد مطالبات للشهر والسنة المحددين .
+        </div>
+
+        <div
+          class="claim-review-modal"
+          *ngIf="
+            (isClaimsReviewer() || editingClaimReview()) &&
+            selectedClaim() as claim
+          "
+        >
+          <section class="mini-panel reviewer-claim-details">
+            <div class="modal-heading">
+              <div>
+                <p class="eyebrow">تفاصيل المطالبة</p>
+                <h3>{{ claim.companyName }}</h3>
+              </div>
+              <button
+                type="button"
+                class="modal-close"
+                aria-label="إغلاق التفاصيل"
+                (click)="closeClaimDetails()"
+              >
+                ×
+              </button>
+            </div>
+            <div class="batch-progress review-summary">
+              <div>
+                <span>المبلغ بعد الخصم</span>
+                <strong>{{
+                  formatMoney(claim.claimAmountAfterDiscount)
+                }}</strong>
+              </div>
+              <div>
+                <span>الحالة</span>
+                <strong>{{ claim.status }}</strong>
+              </div>
+            </div>
+            <form
+              class="mini-form"
+              (ngSubmit)="saveClaimReview()"
+              *ngIf="claim.status !== 'Reviewed' || editingClaimReview()"
+            >
+              <label class="checkbox-line">
+                <input
+                  type="checkbox"
+                  name="reviewerIsAccurate"
+                  [(ngModel)]="reviewForm.isAccurate"
+                />
+                المطالبة صحيحة
+              </label>
+              <label>
+                المبلغ المصحح
+                <input
+                  type="number"
+                  name="reviewerCorrectedAmount"
+                  [(ngModel)]="reviewForm.correctedAmount"
+                />
+              </label>
+              <label>
+                نوع الاختلاف
+                <select
+                  name="reviewerDiscrepancyType"
+                  [(ngModel)]="reviewForm.discrepancyType"
+                >
+                  <option value="ContractualDeduction">خصم تعاقدات</option>
+                  <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
+                  <option value="AccountingDeficit">خطأ محاسبي</option>
+                  <option value="Other">اخرى</option>
+                </select>
+              </label>
+              <label>
+                ملاحظات
+                <textarea
+                  name="reviewerReviewNotes"
+                  [(ngModel)]="reviewForm.notes"
+                ></textarea>
+              </label>
+              <button type="submit" [disabled]="loading()">حفظ المراجعة</button>
+            </form>
+            <div
+              class="saved-review"
+              *ngIf="claim.status === 'Reviewed' && !editingClaimReview()"
+            >
+              تمت مراجعة المطالبة، ولا يمكن تعديلها مرة أخرى.
+            </div>
+          </section>
+        </div>
+
+        <div class="step-actions" *ngIf="isPharmacy()">
+          <button
+            type="button"
+            class="ghost-button"
+            (click)="setPharmacyStep('claims-summary')"
+          >
+            رجوع للملخص
+          </button>
+        </div>
+      </section>
+
+      <section
+        class="workflow-step-panel"
+        *ngIf="activePharmacyStep() === 'claim-review'"
+      >
+
+                    <div class="step-heading">
+              <div class="title">
+            <p class="eyebrow">الخطوة الخامسة</p>
+            <h3>مراجعة المطالبة وتجهيز الشيكات</h3>
+              </div>
+              <div class="actions">
+                <button
+                  type="button"
+                  class="ghost-button"
+                  (click)="loadUpcomingCheques()"
+                >
+                  الشيكات المستحقة قريبًا
+                </button>
+              </div>
+            </div>
+
+        <div class="review-cheque-grid">
+          <section
+            class="mini-panel"
+            *ngIf="isClaimsReviewer() && selectedClaim() as claim"
+          >
+            <p class="eyebrow">تفاصيل المطالبة</p>
+            <h3>{{ claim.companyName }}</h3>
+            <div class="batch-progress review-summary">
+              <div>
+                <span>المبلغ بعد الخصم</span
+                ><strong>{{
+                  formatMoney(claim.claimAmountAfterDiscount)
+                }}</strong>
+              </div>
+              <div>
+                <span>الحالة</span><strong>{{ claim.status }}</strong>
+              </div>
+            </div>
+            <form class="mini-form" (ngSubmit)="saveClaimReview()">
+              <label class="checkbox-line">
+                <input
+                  type="checkbox"
+                  name="isAccurate"
+                  [(ngModel)]="reviewForm.isAccurate"
+                />
+                المطالبة صحيحة
+              </label>
+              <label>
+                المبلغ المصحح
+                <input
+                  type="number"
+                  name="correctedAmount"
+                  [(ngModel)]="reviewForm.correctedAmount"
+                />
+              </label>
+              <label>
+                نوع الاختلاف
+                <select
+                  name="discrepancyType"
+                  [(ngModel)]="reviewForm.discrepancyType"
+                >
+                  <option value="ContractualDeduction">خصم تعاقدات</option>
+                  <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
+                  <option value="AccountingDeficit">خطأ محاسبي</option>
+                  <option value="Other">اخرى</option>
+                </select>
+              </label>
+              <label>
+                ملاحظات
+                <textarea
+                  name="reviewNotes"
+                  [(ngModel)]="reviewForm.notes"
+                ></textarea>
+              </label>
+              <button type="submit" [disabled]="loading()">حفظ المراجعة</button>
+            </form>
+            <div class="saved-review" *ngIf="selectedClaimReview() as review">
+              آخر مراجعة: {{ review.notes || "بدون ملاحظات" }}
+            </div>
+          </section>
+
+          <section class="mini-panel cheque-main-panel" *ngIf="isPharmacy() && preparedCheque()">
+            <div class="step-heading">
+              <div class="title">
+                <h3>تجهيز وإنشاء الشيكات</h3>
+              </div>
+            </div>
+            <div class="prepared-cheque" *ngIf="preparedCheque() as prepared">
+              <div class="cheque-identity-grid">
+                <div class="cheque-field">
+                  <span>اسم الشركة</span>
+                  <strong>{{ prepared.companyName }}</strong>
+                </div>
+                <label>
+                  مدة تحصيل الشيك
+                  <input
+                    type="text"
+                    name="settlementPeriod"
+                    [value]="prepared.settlementDays + ' يوم'"
+                    readonly
+                  />
+                </label>
+              </div>
+              <div class="cheque-bank-grid">
+                <label>
+                  رقم الشيك
+                  <input
+                    type="text"
+                    name="ChequeNumber"
+                    [(ngModel)]="chequeForm.ChequeNumber"
+                    required
+                  />
+                </label>
+                <label>
+                  اسم البنك
+                  <input
+                    type="text"
+                    name="BankName"
+                    [(ngModel)]="chequeForm.BankName"
+                    required
+                  />
+                </label>
+              </div>
+              <div class="cheque-field">
+                <span>مبلغ الشيك</span>
+                <strong>{{ formatMoney(prepared.amount) }}</strong>
+              </div>
+              <label>
+                تاريخ البداية
+                <input
+                  type="date"
+                  name="chequeStartDate"
+                  [(ngModel)]="chequeForm.startDate"
+                />
+              </label>
+              <div
+                class="allocation-row"
+                *ngFor="let allocation of chequeForm.allocations; let i = index"
+              >
+                <label class="allocation-field">
+                  اسم الإدارة
+                  <input
+                    type="text"
+                    [name]="'departmentName' + i"
+                    [(ngModel)]="allocation.departmentName"
+                  />
+                </label>
+                <label class="allocation-field">
+                  المبلغ
+                  <input
+                    type="number"
+                    [name]="'allocationAmount' + i"
+                    [(ngModel)]="allocation.amount"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                (click)="createCheques()"
+                [disabled]="loading()"
+              >
+                إنشاء الشيك
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <div
+          class="table-wrap"
+          *ngIf="isPharmacy() && displayedCheques().length"
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>الشركة</th>
+                <th>رقم الشيك</th>
+                <th>اسم البنك</th>
+                <th>الإدارة</th>
+                <th>المبلغ</th>
+                <th>البداية</th>
+                <th>النهاية</th>
+                <th>الحالة</th>
+                <th>المتبقي</th>
+                <th>الإجراء</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="
+                  let cheque of displayedCheques()
+                "
+              >
+                <td>{{ cheque.companyName }}</td>
+                <td dir="ltr">{{ cheque.chequeNumber || "-" }}</td>
+                <td>{{ cheque.bankName || "-" }}</td>
+                <td>{{ cheque.departmentName || "-" }}</td>
+                <td>{{ formatMoney(cheque.amount) }}</td>
+                <td>{{ cheque.startDate | date: "mediumDate" }}</td>
+                <td>{{ cheque.endDate | date: "mediumDate" }}</td>
+                <td>{{ displayChequeStatus(cheque.status) }}</td>
+                <td>
+                  {{
+                    cheque.remainingAmount === null
+                      ? "-"
+                      : formatMoney(cheque.remainingAmount)
+                  }}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    class="text-button"
+                    (click)="openChequeStatusModal(cheque)"
+                  >
+                    تحديث
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="claim-review-modal" *ngIf="showUpcomingChequesModal()">
+          <section class="mini-panel upcoming-cheques-modal">
+            <div class="modal-heading">
+              <div>
+                <p class="eyebrow">الشيكات المستحقة قريبًا</p>
+                <h3>متابعة الشيكات</h3>
+              </div>
+              <button
+                type="button"
+                class="modal-close"
+                aria-label="إغلاق الشيكات المستحقة قريبًا"
+                (click)="closeUpcomingChequesModal()"
+              >
+                ×
+              </button>
+            </div>
+
+            <div class="empty-state" *ngIf="!upcomingCheques().length">
+              لا توجد أي شيكات مستحقة قريبًا
+            </div>
+
+            <div class="table-wrap" *ngIf="upcomingCheques().length">
+              <table>
+                <thead>
+                  <tr>
+                    <th>الشركة</th>
+                    <th>رقم الشيك</th>
+                    <th>اسم البنك</th>
+                    <th>المبلغ</th>
+                    <th>تاريخ الاستحقاق</th>
+                    <th>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let cheque of upcomingCheques()">
+                    <td>{{ cheque.companyName }}</td>
+                    <td dir="ltr">{{ cheque.chequeNumber || "-" }}</td>
+                    <td>{{ cheque.bankName || "-" }}</td>
+                    <td>{{ formatMoney(cheque.amount) }}</td>
+                    <td>{{ cheque.endDate | date: "mediumDate" }}</td>
+                    <td>{{ displayChequeStatus(cheque.status) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="claim-review-modal" *ngIf="showChequeStatusModal()">
+          <section class="mini-panel cheque-status-modal">
+            <div class="modal-heading">
+              <div>
+                <p class="eyebrow">تحديث الشيك</p>
+                <h3>{{ selectedChequeForStatus()?.companyName }}</h3>
+              </div>
+              <button
+                type="button"
+                class="modal-close"
+                aria-label="إغلاق تحديث الشيك"
+                (click)="closeChequeStatusModal()"
+              >
+                ×
+              </button>
+            </div>
+
+            <form class="mini-form" (ngSubmit)="updateChequeStatus()">
+              <label>
+                الحالة
+                <select
+                  name="modalChequeStatus"
+                  [(ngModel)]="chequeStatusForm.status"
+                >
+                  <option value="PaidInFull">مدفوع بالكامل</option>
+                  <option value="PartiallyPaid">مدفوع جزئيًا</option>
+                  <option value="Pending">قيد الانتظار</option>
+                </select>
+              </label>
+              <label *ngIf="chequeStatusForm.status === 'PartiallyPaid'">
+                المبلغ المتبقي
+                <input
+                  type="number"
+                  name="modalRemainingAmount"
+                  [(ngModel)]="chequeStatusForm.remainingAmount"
+                  min="0"
+                  required
+                />
+              </label>
+              <button type="submit" [disabled]="loading()">
+                حفظ الحالة
+              </button>
+            </form>
+          </section>
+        </div>
+
+        <div class="step-actions">
+          <button
+            type="button"
+            class="ghost-button"
+            (click)="setPharmacyStep('claims')"
+          >
+            رجوع للمطالبات
+          </button>
         </div>
       </section>
     </section>
@@ -384,13 +1500,17 @@
     <div class="footer-content">
       <p class="eyebrow">
         جميع الحقوق محفوظة لـ
-        <a href="https://opshan.github.io/home/#Welcome" target="_blank" rel="noopener noreferrer">
+        <a
+          href="https://opshan.github.io/home/#Welcome"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           شركة أوبشن لتطوير البرمجيات
         </a>
         © {{ currentYear() }}
       </p>
       <p class="mt-8 text-center text-sm font-medium text-slate-400">
-        Software Version 1.0.0
+        Software Version 2.0.0
       </p>
     </div>
   </footer>

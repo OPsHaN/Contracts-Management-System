@@ -3,7 +3,13 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
-import { CompanyDto, CompanyRequest, PagedResponse } from './api.models';
+import {
+  CompanyDto,
+  CompanyRequest,
+  CreateDepartmentRequest,
+  DepartmentDto,
+  PagedResponse
+} from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class CompaniesService {
@@ -29,5 +35,17 @@ export class CompaniesService {
 
   getCompany(companyId: string): Observable<CompanyDto> {
     return this.http.get<CompanyDto>(`${this.apiUrl}/${companyId}`);
+  }
+
+  createDepartment(companyId: string, payload: CreateDepartmentRequest): Observable<DepartmentDto> {
+    return this.http.post<DepartmentDto>(`${this.apiUrl}/${companyId}/departments`, payload);
+  }
+
+  getDepartments(companyId: string): Observable<DepartmentDto[]> {
+    return this.http.get<DepartmentDto[]>(`${this.apiUrl}/${companyId}/departments`);
+  }
+
+  deleteDepartment(companyId: string, departmentId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${companyId}/departments/${departmentId}`);
   }
 }

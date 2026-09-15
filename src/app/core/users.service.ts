@@ -3,7 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
-import { CreateUserRequest, UpdateUserStatusRequest, UserDto } from './api.models';
+import {
+  CreateReviewerRequest,
+  CreateUserRequest,
+  ReviewerDto,
+  UpdateUserStatusRequest,
+  UserDto
+} from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class UsersService {
@@ -17,6 +23,14 @@ export class UsersService {
 
   getUsers(): Observable<UserDto[]> {
     return this.http.get<UserDto[]>(this.apiUrl);
+  }
+
+  getReviewers(): Observable<ReviewerDto[]> {
+    return this.http.get<ReviewerDto[]>(`${this.apiUrl}/reviewers`);
+  }
+
+  createReviewer(payload: CreateReviewerRequest): Observable<ReviewerDto> {
+    return this.http.post<ReviewerDto>(`${this.apiUrl}/reviewers`, payload);
   }
 
   updateStatus(userId: string, payload: UpdateUserStatusRequest): Observable<void> {

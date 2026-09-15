@@ -5,10 +5,22 @@ import { FormsModule } from '@angular/forms';
 import { Observable, finalize } from 'rxjs';
 
 import {
+  ChequeAllocation,
+  ChequeDto,
+  ChequePrepareResponse,
+  ClaimDto,
+  ClaimReviewRequest,
+  ClaimReviewResponse,
   ClaimsPivotResponse,
   CompanyDto,
+  CompanyInsightsResponse,
   CompanyRequest,
+  CompanyRespons,
+  CreateDepartmentRequest,
+  CreateReviewerRequest,
   CreateUserRequest,
+  DepartmentDto,
+  ReviewerDto,
   SalesBatchStatus,
   SalesBatchUploadResponse,
   UserDto,
@@ -19,7 +31,7 @@ import { CompaniesService } from './core/companies.service';
 import { SalesClaimsService } from './core/sales-claims.service';
 import { UsersService } from './core/users.service';
 
-type PharmacyStep = 'companies' | 'upload' | 'processing' | 'claims';
+type PharmacyStep = 'companies' | 'upload' | 'claims-summary' | 'claims' | 'claim-review';
 
 @Component({
   selector: 'app-root',
@@ -37,41 +49,156 @@ export class AppComponent {
   readonly session = this.authService.session;
   readonly isSuperAdmin = computed(() => this.session()?.role === 'SuperAdmin');
   readonly isPharmacy = computed(() => this.session()?.role === 'Pharmacy');
+  readonly isClaimsReviewer = computed(() => this.session()?.role === 'ClaimsReviewer');
 
   readonly loading = signal(false);
   readonly message = signal('');
   readonly users = signal<UserDto[]>([]);
+  readonly reviewers = signal<ReviewerDto[]>([]);
   readonly companies = signal<CompanyDto[]>([]);
+  readonly companiesRespons = signal<CompanyRespons[]>([]);
   readonly pageNumber = signal(1);
   readonly totalPages = signal(1);
   readonly editingCompanyId = signal<string | null>(null);
+  readonly selectedCompanyForDepartments = signal<CompanyRespons | null>(null);
+  readonly departments = signal<DepartmentDto[]>([]);
+  readonly showDepartmentsModal = signal(false);
   readonly showCompanyForm = signal(false);
   readonly showUserForm = signal(false);
+  readonly showReviewerTable = signal(false);
+  readonly showReviewerForm = signal(false);
   readonly selectedSalesFile = signal<File | null>(null);
   readonly uploadResult = signal<SalesBatchUploadResponse | null>(null);
   readonly batchDetails = signal<SalesBatchStatus | null>(null);
   readonly pivotData = signal<ClaimsPivotResponse | null>(null);
+  readonly claims = signal<ClaimDto[]>([]);
+  readonly companyInsights = signal<CompanyInsightsResponse | null>(null);
+  readonly selectedClaim = signal<ClaimDto | null>(null);
+  readonly selectedClaimReview = signal<ClaimReviewResponse | null>(null);
+  readonly preparedCheque = signal<ChequePrepareResponse | null>(null);
+  readonly cheques = signal<ChequeDto[]>([]);
+  readonly upcomingCheques = signal<ChequeDto[]>([]);
+  readonly showUpcomingChequesModal = signal(false);
+  readonly createdChequeClaimIds = signal<string[]>([]);
+  readonly showChequeStatusModal = signal(false);
+  readonly selectedChequeForStatus = signal<ChequeDto | null>(null);
   readonly pivotLoading = signal(false);
+  readonly claimsLoading = signal(false);
   readonly batchPolling = signal(false);
+  readonly uploadProgress = signal(0);
   readonly activePharmacyStep = signal<PharmacyStep>('companies');
+  readonly appliedCompanyName = signal('');
+  readonly showLoginPassword = signal(false);
+  readonly showUserPassword = signal(false);
+  readonly editingClaimReview = signal(false);
+  readonly displayedCheques = computed(() => {
+    const uniqueCheques = new Map<string, ChequeDto>();
+
+    [...this.cheques(), ...this.upcomingCheques()].forEach((cheque) => {
+      uniqueCheques.set(cheque.id, cheque);
+    });
+
+    return Array.from(uniqueCheques.values());
+  });
   readonly pivotGrandTotal = computed(() =>
-    this.pivotData()?.rows.reduce((sum, row) => sum + row.total, 0) ?? 0
+    this.pivotTotalsRow()?.grandTotal ?? 0
   );
+  readonly filteredPivotRows = computed(() => {
+    const pivot = this.pivotData();
+    const companyName = this.appliedCompanyName().trim();
+
+    if (!pivot) {
+      return [];
+    }
+
+    if (!companyName) {
+      return pivot.rows;
+    }
+
+    return pivot.rows.filter((row) => row.companyName.includes(companyName));
+  });
+  readonly pivotTotalsRow = computed(() => {
+    const pivot = this.pivotData();
+
+    if (!pivot) {
+      return null;
+    }
+
+    if (!this.appliedCompanyName().trim() && pivot.totalsRow) {
+      return pivot.totalsRow;
+    }
+
+    const rows = this.filteredPivotRows();
+    const amountsByBranch = pivot.branches.reduce<Record<string, number>>((totals, branch) => {
+      totals[branch] = rows.reduce((sum, row) => sum + (row.amountsByBranch[branch] || 0), 0);
+      return totals;
+    }, {});
+
+    return {
+      amountsByBranch,
+      grandTotal: rows.reduce((sum, row) => sum + row.total, 0)
+    };
+  });
+  readonly companyOptions = computed(() => {
+    const names = this.pivotData()?.rows.map((row) => row.companyName) ?? [];
+
+    return Array.from(new Set(names))
+      .filter(Boolean)
+      .sort((first, second) => first.localeCompare(second, 'ar'));
+  });
+  readonly pharmacyOptions = computed(() => {
+    const names = this.users()
+      .map((user) => user.pharmacyName?.trim() ?? '')
+      .filter(Boolean);
+
+    return Array.from(new Set(names)).sort((first, second) => first.localeCompare(second, 'ar'));
+  });
+  readonly batchProgressPercent = computed(() => {
+    const batch = this.batchDetails();
+
+    if (!batch?.totalRows) {
+      return this.batchPolling() ? 35 : this.uploadProgress();
+    }
+
+    return Math.round((batch.processedRows / batch.totalRows) * 100);
+  });
   readonly pharmacySteps: { key: PharmacyStep; label: string; hint: string }[] = [
     { key: 'companies', label: 'تسجيل الشركات', hint: 'إضافة ومراجعة بيانات التعاقد' },
-    { key: 'upload', label: 'رفع ملف المبيعات', hint: 'اختيار ملف Excel والشهر والسنة' },
-    { key: 'processing', label: 'متابعة المعالجة', hint: 'مراجعة حالة Batch' },
-    { key: 'claims', label: 'عرض المطالبات', hint: 'جدول Pivot حسب الفروع' }
+    { key: 'upload', label: 'رفع ملف المبيعات', hint: 'اختيار ملف Excel' },
+    { key: 'claims-summary', label: 'ملخص الشركات', hint: 'جدول الشركات والصيدليات' },
+    { key: 'claims', label: 'مطالبات الشركات', hint: 'المبالغ بعد الخصم والمراجعة' },
+    { key: 'claim-review', label: 'مراجعة المطالبة', hint: 'المطالبة والشيكات' }
   ];
 
   loginForm = {
-    email: 'admin@pharmacycontracts.com',
+    email: '',
     password: 'ChangeThisP@ssw0rd123'
   };
 
   claimsFilter = {
     month: new Date().getMonth() + 1,
-    year: new Date().getFullYear()
+    year: new Date().getFullYear(),
+    companyName: ''
+  };
+
+  reviewForm: ClaimReviewRequest = {
+    isAccurate: false,
+    correctedAmount: 0,
+    discrepancyType: 'Other',
+    notes: ''
+  };
+
+  chequeForm = {
+    startDate: new Date().toISOString().slice(0, 10),
+    ChequeNumber: '',
+    BankName: '',
+    allocations: [] as ChequeAllocation[]
+  };
+
+  chequeStatusForm = {
+    chequeId: '',
+    status: 'PaidInFull' as 'Pending' | 'PaidInFull' | 'PartiallyPaid',
+    remainingAmount: null as number | null
   };
 
   userForm: CreateUserRequest = {
@@ -81,7 +208,19 @@ export class AppComponent {
     pharmacyName: ''
   };
 
+  reviewerForm: CreateReviewerRequest = {
+    email: '',
+    password: '',
+    role: 'ClaimsReviewer',
+    isActive: true,
+    pharmacyName: null
+  };
+
   companyForm: CompanyRequest = this.emptyCompanyForm();
+
+  departmentForm: CreateDepartmentRequest = {
+    name: ''
+  };
 
   login(): void {
     this.withLoading(this.authService.login(this.loginForm)).subscribe({
@@ -101,6 +240,94 @@ export class AppComponent {
     this.message.set('تم تسجيل الخروج.');
   }
 
+  closeNotice(): void {
+    this.message.set('');
+  }
+
+  closeClaimDetails(): void {
+    this.selectedClaim.set(null);
+    this.editingClaimReview.set(false);
+  }
+
+  closeCompanyForm(): void {
+    this.showCompanyForm.set(false);
+  }
+
+  openDepartmentsModal(company: CompanyRespons): void {
+    this.selectedCompanyForDepartments.set(company);
+    this.departmentForm = { name: '' };
+    this.showDepartmentsModal.set(true);
+    this.loadDepartments(company.id);
+  }
+
+  closeDepartmentsModal(): void {
+    this.showDepartmentsModal.set(false);
+    this.selectedCompanyForDepartments.set(null);
+    this.departments.set([]);
+    this.departmentForm = { name: '' };
+  }
+
+  loadDepartments(companyId = this.selectedCompanyForDepartments()?.id): void {
+    if (!companyId) {
+      return;
+    }
+
+    this.withLoading(this.companiesService.getDepartments(companyId)).subscribe({
+      next: (departments) => this.departments.set(departments),
+      error: (error) => this.showError(error)
+    });
+  }
+
+  createDepartment(): void {
+    const companyId = this.selectedCompanyForDepartments()?.id;
+    const name = this.departmentForm.name.trim();
+
+    if (!companyId || !name) {
+      this.message.set('اكتب اسم الإدارة أولًا.');
+      return;
+    }
+
+    this.withLoading(this.companiesService.createDepartment(companyId, { name })).subscribe({
+      next: (department) => {
+        this.departments.update((departments) => [...departments, department]);
+        this.departmentForm = { name: '' };
+        this.message.set('تمت إضافة الإدارة.');
+      },
+      error: (error) => this.showError(error)
+    });
+  }
+
+  deleteDepartment(department: DepartmentDto): void {
+    const companyId = this.selectedCompanyForDepartments()?.id;
+
+    if (!companyId) {
+      return;
+    }
+
+    this.withLoading(this.companiesService.deleteDepartment(companyId, department.id)).subscribe({
+      next: () => {
+        this.departments.update((departments) =>
+          departments.filter((currentDepartment) => currentDepartment.id !== department.id)
+        );
+        this.message.set('تم حذف الإدارة.');
+      },
+      error: (error) => this.showError(error)
+    });
+  }
+
+  closeReviewerForm(): void {
+    this.showReviewerForm.set(false);
+  }
+
+  togglePasswordVisibility(passwordType: 'login' | 'user'): void {
+    if (passwordType === 'login') {
+      this.showLoginPassword.update((visible) => !visible);
+      return;
+    }
+
+    this.showUserPassword.update((visible) => !visible);
+  }
+
   loadRoleData(): void {
     if (this.isSuperAdmin()) {
       this.loadUsers();
@@ -109,19 +336,31 @@ export class AppComponent {
     if (this.isPharmacy()) {
       this.loadCompanies();
     }
+
+    if (this.isClaimsReviewer()) {
+      this.claimsFilter.companyName = '';
+      this.appliedCompanyName.set('');
+      this.activePharmacyStep.set('claims');
+      this.loadClaims();
+    }
+  }
+
+  canShowStep(step: PharmacyStep): boolean {
+    return this.isPharmacy() || step === 'claims';
   }
 
   setPharmacyStep(step: PharmacyStep): void {
     this.activePharmacyStep.set(step);
-
-    if (step === 'claims') {
-      this.loadClaimsPivot();
-    }
   }
 
   onSalesFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.selectedSalesFile.set(input.files?.[0] ?? null);
+    this.uploadResult.set(null);
+    this.batchDetails.set(null);
+    this.pivotData.set(null);
+    this.claims.set([]);
+    this.uploadProgress.set(input.files?.[0] ? 15 : 0);
   }
 
   uploadSalesBatch(): void {
@@ -141,8 +380,8 @@ export class AppComponent {
     this.withLoading(this.salesClaimsService.uploadSalesBatch(pharmacyId, file)).subscribe({
       next: (response) => {
         this.uploadResult.set(response);
-        this.activePharmacyStep.set('processing');
-        this.message.set('تم رفع الملف وبدأت المعالجة.');
+        this.uploadProgress.set(100);
+        this.message.set('جاري رفع الملف والتأكد من بياناته.');
         this.pollSalesBatch(response.batchId);
       },
       error: (error) => this.showError(error)
@@ -161,9 +400,7 @@ export class AppComponent {
 
         if (batch.status === 'Completed') {
           this.batchPolling.set(false);
-          this.activePharmacyStep.set('claims');
-          this.message.set('تمت معالجة الملف بنجاح.');
-          this.loadClaimsPivot();
+          this.message.set('تم رفع الملف بنجاح والتأكد من بياناته.');
           return;
         }
 
@@ -182,6 +419,48 @@ export class AppComponent {
     });
   }
 
+  applyClaimsFilters(): void {
+    this.claimsFilter.companyName = '';
+    this.appliedCompanyName.set('');
+    this.companyInsights.set(null);
+    this.preparedCheque.set(null);
+    this.selectedClaim.set(null);
+    this.selectedClaimReview.set(null);
+    this.loadClaimsPivot();
+    this.loadClaims();
+    this.loadCheques();
+  }
+
+  applyCompanyFilter(): void {
+    this.appliedCompanyName.set(this.claimsFilter.companyName.trim());
+    this.loadClaims();
+
+    if (this.claimsFilter.companyName.trim()) {
+      this.loadCompanyInsights();
+      this.prepareCheque();
+      this.loadCheques();
+      return;
+    }
+
+    this.companyInsights.set(null);
+    this.preparedCheque.set(null);
+    this.loadCheques();
+  }
+
+  generateClaims(): void {
+    this.withLoading(this.salesClaimsService.generateClaims({
+      month: this.claimsFilter.month,
+      year: this.claimsFilter.year
+    })).subscribe({
+      next: (claims) => {
+        this.claims.set(claims);
+        this.message.set('تم توليد المطالبات بنجاح.');
+        this.loadClaimsPivot();
+      },
+      error: (error) => this.showError(error)
+    });
+  }
+
   loadClaimsPivot(): void {
     this.pivotLoading.set(true);
     this.salesClaimsService.getClaimsPivot(this.claimsFilter.month, this.claimsFilter.year)
@@ -192,11 +471,328 @@ export class AppComponent {
       });
   }
 
+  loadClaims(): void {
+    if (this.isClaimsReviewer()) {
+      this.claimsFilter.companyName = '';
+    }
+
+    this.claimsLoading.set(true);
+    this.salesClaimsService.getClaims(this.claimsFilter.month, this.claimsFilter.year)
+      .pipe(finalize(() => this.claimsLoading.set(false)))
+      .subscribe({
+        next: (claims) => this.claims.set(
+          this.isClaimsReviewer() ? claims : this.filterClaimsByCompany(claims)
+        ),
+        error: (error) => this.showError(error)
+      });
+  }
+
+  loadCompanyInsights(): void {
+    const companyName = this.claimsFilter.companyName.trim();
+
+    if (!companyName) {
+      this.companyInsights.set(null);
+      return;
+    }
+
+    this.salesClaimsService.getCompanyInsights(companyName, this.claimsFilter.month, this.claimsFilter.year).subscribe({
+      next: (insights) => this.companyInsights.set(insights),
+      error: (error) => this.showError(error)
+    });
+  }
+
+  selectClaim(claim: ClaimDto): void {
+    const wasAlreadyPending = claim.status === 'Pending';
+    const pendingClaim: ClaimDto = {
+      ...claim,
+      status: 'Pending'
+    };
+
+    this.claims.update((claims) =>
+      claims.map((currentClaim) => currentClaim.id === claim.id ? pendingClaim : currentClaim)
+    );
+    this.selectedClaim.set(pendingClaim);
+    this.claimsFilter.companyName = pendingClaim.companyName;
+    this.reviewForm = {
+      isAccurate: false,
+      correctedAmount: pendingClaim.correctedAmount ?? pendingClaim.claimAmountAfterDiscount,
+      discrepancyType: 'Other',
+      notes: ''
+    };
+
+    if (this.isPharmacy()) {
+      this.message.set(
+        wasAlreadyPending
+          ? 'تم إرسال المطالبة بالفعل للمراجعة، وهي في انتظار رد الفريق المختص.'
+          : 'تم إرسال المطالبة للمراجعة للفريق المختص، وسيتم تجهيز الشيك بعد الرد.'
+      );
+      return;
+    }
+
+    this.message.set('المطالبة في انتظار رد المراجع، وسيتم تجهيز الشيك بعد المراجعة.');
+    this.loadClaimReview(pendingClaim.id);
+  }
+
+  saveClaimReview(): void {
+    const claim = this.selectedClaim();
+
+    if (!claim) {
+      this.message.set('اختار مطالبة الأول.');
+      return;
+    }
+
+    const reviewPayload: ClaimReviewRequest = {
+      ...this.reviewForm,
+      isAccurate: this.reviewForm.isAccurate === true
+    };
+
+    const request$ = this.editingClaimReview()
+      ? this.salesClaimsService.updateClaimReview(claim.id, reviewPayload)
+      : this.salesClaimsService.saveClaimReview(claim.id, reviewPayload);
+
+    this.withLoading(request$).subscribe({
+      next: (review) => {
+        this.selectedClaimReview.set(review);
+        const reviewedClaim: ClaimDto = {
+          ...(this.selectedClaim() ?? claim),
+          status: 'Reviewed'
+        };
+        this.selectedClaim.set(reviewedClaim);
+        this.claims.update((claims) =>
+          claims.map((currentClaim) => currentClaim.id === reviewedClaim.id ? reviewedClaim : currentClaim)
+        );
+        this.message.set('تم حفظ مراجعة المطالبة.');
+        this.editingClaimReview.set(false);
+        if (this.isPharmacy()) {
+          this.loadClaims();
+        }
+      },
+      error: (error) => this.showError(error)
+    });
+  }
+
+  editClaimReview(claim: ClaimDto): void {
+    this.selectedClaim.set(claim);
+    this.editingClaimReview.set(true);
+    this.reviewForm = {
+      isAccurate: false,
+      correctedAmount: claim.correctedAmount ?? claim.claimAmountAfterDiscount,
+      discrepancyType: 'Other',
+      notes: ''
+    };
+    this.loadClaimReview(claim.id);
+  }
+
+  loadClaimReview(claimId = this.selectedClaim()?.id): void {
+    if (!claimId) {
+      return;
+    }
+
+    this.salesClaimsService.getClaimReview(claimId).subscribe({
+      next: (review) => {
+        this.selectedClaimReview.set(review);
+        this.reviewForm = {
+          isAccurate: review.isAccurate,
+          correctedAmount: review.correctedAmount,
+          discrepancyType: review.discrepancyType,
+          notes: review.notes
+        };
+      },
+      error: () => this.selectedClaimReview.set(null)
+    });
+  }
+
+  prepareCheque(claim?: ClaimDto): void {
+    const companyName = claim?.companyName.trim() || this.claimsFilter.companyName.trim();
+
+    if (claim) {
+      this.claimsFilter.companyName = claim.companyName;
+      this.claimsFilter.month = claim.month;
+      this.claimsFilter.year = claim.year;
+    }
+
+    if (!companyName) {
+      this.message.set('اكتب اسم الشركة لتجهيز الشيك.');
+      return;
+    }
+
+    this.withLoading(this.salesClaimsService.prepareCheque(companyName, this.claimsFilter.month, this.claimsFilter.year)).subscribe({
+      next: (prepared) => {
+        this.preparedCheque.set(prepared);
+        this.chequeForm.allocations = this.createDefaultAllocations(prepared);
+        this.activePharmacyStep.set('claim-review');
+        this.message.set('تم تجهيز بيانات الشيك بنجاح.');
+      },
+      error: (error) => this.showError(error)
+    });
+  }
+
+  createCheques(): void {
+    const prepared = this.preparedCheque();
+
+    if (!prepared) {
+      this.message.set('جهّز الشيك الأول.');
+      return;
+    }
+
+    const payload = {
+      startDate: this.chequeForm.startDate,
+      allocations: this.chequeForm.allocations.map((allocation) => ({
+        ...allocation,
+        departmentName: allocation.departmentName?.trim() || null,
+        ChequeNumber: this.chequeForm.ChequeNumber,
+        BankName: this.chequeForm.BankName
+      }))
+    };
+
+    this.withLoading(this.salesClaimsService.createCheques(prepared.claimId, payload)).subscribe({
+      next: (cheques) => {
+        const mergeCheques = (existing: ChequeDto[]) => {
+          const uniqueCheques = new Map<string, ChequeDto>();
+
+          [...existing, ...cheques].forEach((cheque) => {
+            uniqueCheques.set(cheque.id, cheque);
+          });
+
+          return Array.from(uniqueCheques.values());
+        };
+
+        this.cheques.update(mergeCheques);
+        this.upcomingCheques.update(mergeCheques);
+        this.createdChequeClaimIds.update((claimIds) =>
+          claimIds.includes(prepared.claimId)
+            ? claimIds
+            : [...claimIds, prepared.claimId]
+        );
+        this.preparedCheque.set(null);
+        this.message.set('تم إنشاء الشيكات.');
+      },
+      error: (error) => this.showError(error)
+    });
+  }
+
+  hasChequeForClaim(claim: ClaimDto): boolean {
+    return this.createdChequeClaimIds().includes(claim.id)
+      || this.displayedCheques().some((cheque) => cheque.companyName === claim.companyName);
+  }
+
+  loadCheques(): void {
+    this.salesClaimsService.getCheques(
+      this.claimsFilter.companyName.trim() || undefined,
+      this.claimsFilter.month,
+      this.claimsFilter.year
+    ).subscribe({
+      next: (cheques) => this.cheques.set(cheques),
+      error: (error) => this.showError(error)
+    });
+  }
+
+  loadUpcomingCheques(): void {
+    this.salesClaimsService.getUpcomingDueCheques().subscribe({
+      next: (cheques) => {
+        this.upcomingCheques.set(cheques);
+        this.showUpcomingChequesModal.set(true);
+      },
+      error: (error) => this.showError(error)
+    });
+  }
+
+  closeUpcomingChequesModal(): void {
+    this.showUpcomingChequesModal.set(false);
+  }
+
+  openChequeStatusModal(cheque: ChequeDto): void {
+    this.selectedChequeForStatus.set(cheque);
+    this.chequeStatusForm = {
+      chequeId: cheque.id,
+      status: cheque.status as 'Pending' | 'PaidInFull' | 'PartiallyPaid',
+      remainingAmount: cheque.remainingAmount
+    };
+    this.showChequeStatusModal.set(true);
+  }
+
+  closeChequeStatusModal(): void {
+    this.showChequeStatusModal.set(false);
+    this.selectedChequeForStatus.set(null);
+  }
+
+
+  updateChequeStatus(): void {
+    if (!this.chequeStatusForm.chequeId) {
+      this.message.set('اختار شيك لتحديث حالته.');
+      return;
+    }
+
+    const payload = {
+      status: this.chequeStatusForm.status,
+      remainingAmount: this.chequeStatusForm.status === 'PartiallyPaid'
+        ? this.chequeStatusForm.remainingAmount
+        : null
+    };
+
+    this.withLoading(this.salesClaimsService.updateChequeStatus(this.chequeStatusForm.chequeId, payload)).subscribe({
+      next: () => {
+        const updateCheque = (cheques: ChequeDto[]) => cheques.map((cheque) =>
+          cheque.id === this.chequeStatusForm.chequeId
+            ? {
+                ...cheque,
+                status: payload.status,
+                remainingAmount: payload.remainingAmount
+              }
+            : cheque
+        );
+
+        this.cheques.update(updateCheque);
+        this.upcomingCheques.update(updateCheque);
+        this.message.set('تم تحديث حالة الشيك.');
+        this.closeChequeStatusModal();
+      },
+      error: (error) => this.showError(error)
+    });
+  }
+
   loadUsers(): void {
     this.withLoading(this.usersService.getUsers()).subscribe({
         next: (users) => this.users.set(users),
         error: (error) => this.showError(error)
       });
+  }
+
+  loadReviewers(): void {
+    this.withLoading(this.usersService.getReviewers()).subscribe({
+      next: (reviewers) => this.reviewers.set(reviewers),
+      error: (error) => this.showError(error)
+    });
+  }
+
+  toggleReviewerTable(): void {
+    const shouldShow = !this.showReviewerForm();
+    this.showReviewerTable.set(true);
+    this.showReviewerForm.set(shouldShow);
+
+    if (shouldShow) {
+      this.reviewerForm.pharmacyName = this.isPharmacy()
+        ? this.session()?.pharmacyName ?? null
+        : null;
+    }
+  }
+
+  createReviewer(): void {
+    this.withLoading(this.usersService.createReviewer(this.reviewerForm)).subscribe({
+      next: (reviewer) => {
+        this.reviewers.update((reviewers) => [reviewer, ...reviewers]);
+        this.reviewerForm = {
+          email: '',
+          password: '',
+          role: 'ClaimsReviewer',
+          isActive: true,
+          pharmacyName: null
+        };
+        this.showReviewerForm.set(false);
+        this.message.set('تم إنشاء المراجع بنجاح.');
+      },
+      error: (error) => this.showError(error)
+    });
   }
 
   createUser(): void {
@@ -228,7 +824,12 @@ export class AppComponent {
   loadCompanies(pageNumber = this.pageNumber()): void {
     this.withLoading(this.companiesService.getCompanies(pageNumber, 10)).subscribe({
         next: (page) => {
-          this.companies.set(page.items);
+          const companyResponses = page.items as unknown as CompanyRespons[];
+          this.companiesRespons.set(companyResponses);
+          this.companies.set(companyResponses.map((company) => ({
+            ...company,
+            Discount: company.discount
+          })));
           this.pageNumber.set(page.pageNumber);
           this.totalPages.set(page.totalPages);
         },
@@ -253,11 +854,12 @@ export class AppComponent {
       });
   }
 
-  editCompany(company: CompanyDto): void {
+  editCompany(company: CompanyRespons): void {
     this.editingCompanyId.set(company.id);
     this.showCompanyForm.set(true);
     this.companyForm = {
       name: company.name,
+      Discount: company.discount,
       localDiscountPercentage: company.localDiscountPercentage,
       importedDiscountPercentage: company.importedDiscountPercentage,
       taxPercentage: company.taxPercentage,
@@ -291,6 +893,7 @@ export class AppComponent {
   private emptyCompanyForm(): CompanyRequest {
     return {
       name: '',
+      Discount: 0,
       localDiscountPercentage: 0,
       importedDiscountPercentage: 0,
       taxPercentage: 14,
@@ -304,7 +907,15 @@ export class AppComponent {
   }
 
   displayRole(role: UserRole): string {
-    return role === 'SuperAdmin' ? 'مدير نظام' : 'صيدلية';
+    if (role === 'SuperAdmin') {
+      return 'مدير نظام';
+    }
+
+    if (role === 'ClaimsReviewer') {
+      return 'مراجع مطالبات';
+    }
+
+    return 'صيدلية';
   }
 
   displayBatchStatus(status: string): string {
@@ -318,11 +929,23 @@ export class AppComponent {
     return labels[status] ?? status;
   }
 
+  displayChequeStatus(status: string): string {
+    const labels: Record<string, string> = {
+      Pending: 'قيد الانتظار',
+      PaidInFull: 'مدفوع بالكامل',
+      PartiallyPaid: 'مدفوع جزئيًا'
+    };
+
+    return labels[status] ?? status;
+  }
+
   formatMoney(value: number): string {
-    return new Intl.NumberFormat('ar-EG', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+    const formattedValue = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(value);
+
+    return `${formattedValue} ج.م`;
   }
 
   private clearSalesData(): void {
@@ -330,7 +953,40 @@ export class AppComponent {
     this.uploadResult.set(null);
     this.batchDetails.set(null);
     this.pivotData.set(null);
+    this.claims.set([]);
+    this.companyInsights.set(null);
+    this.selectedClaim.set(null);
+    this.selectedClaimReview.set(null);
+    this.preparedCheque.set(null);
+    this.cheques.set([]);
+    this.upcomingCheques.set([]);
+    this.appliedCompanyName.set('');
     this.batchPolling.set(false);
+    this.uploadProgress.set(0);
+  }
+
+  private filterClaimsByCompany(claims: ClaimDto[]): ClaimDto[] {
+    const companyName = this.claimsFilter.companyName.trim();
+
+    if (!companyName) {
+      return claims;
+    }
+
+    return claims.filter((claim) => claim.companyName.includes(companyName));
+  }
+
+  private createDefaultAllocations(prepared: ChequePrepareResponse): ChequeAllocation[] {
+    if (!prepared.departments.length) {
+      return [{ departmentName: '', amount: prepared.amount }];
+    }
+
+    const baseAmount = Math.floor((prepared.amount / prepared.departments.length) * 100) / 100;
+    return prepared.departments.map((departmentName, index) => ({
+      departmentName,
+      amount: index === prepared.departments.length - 1
+        ? Number((prepared.amount - baseAmount * index).toFixed(2))
+        : baseAmount
+    }));
   }
 
   ngOnInit(): void {
