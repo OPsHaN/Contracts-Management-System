@@ -702,7 +702,7 @@ button:disabled {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;
+  // min-width: 720px;
 
 }
 
@@ -1038,6 +1038,13 @@ tbody tr:hover {
 
 .claims-table-wrap {
   margin-top: 16px;
+}
+
+.claims-table-wrap .notes-column {
+  width: 180px;
+  max-width: 180px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .review-cheque-grid {
@@ -1377,6 +1384,14 @@ textarea:focus {
   background: #171717;
   color: #ffffff;
   box-shadow: none;
+  margin: auto;
+    display: flex;
+    justify-content: space-between;
+    text-align: center;
+    align-content: center;
+    flex-wrap: nowrap;
+    flex-direction: row;
+    align-items: center;
 }
 
 .ghost-button:hover:not(:disabled) {

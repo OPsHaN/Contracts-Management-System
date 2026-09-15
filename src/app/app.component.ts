@@ -447,6 +447,52 @@ export class AppComponent {
     this.loadCheques();
   }
 
+  downloadClaimsSummaryExcel(): void {
+    const pivot = this.pivotData();
+
+    if (!pivot) {
+      this.message.set('حمّل ملخص الشركات أولًا قبل تنزيل ملف Excel.');
+      return;
+    }
+
+    const headers = ['اسم الشركة', ...pivot.branches, 'الإجمالي'];
+    const rows = this.filteredPivotRows().map((row) => [
+      row.companyName,
+      ...pivot.branches.map((branch) => row.amountsByBranch[branch] || 0),
+      row.total
+    ]);
+    const totals = this.pivotTotalsRow();
+    const tableRows = totals
+      ? [
+          ...rows,
+          [
+            'الإجمالي',
+            ...pivot.branches.map((branch) => totals.amountsByBranch[branch] || 0),
+            totals.grandTotal
+          ]
+        ]
+      : rows;
+    const escapeCell = (value: string | number) =>
+      String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    const table = `
+      <table border="1">
+        <thead><tr>${headers.map((header) => `<th>${escapeCell(header)}</th>`).join('')}</tr></thead>
+        <tbody>${tableRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeCell(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>`;
+    const excelDocument = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body dir="rtl">${table}</body></html>`;
+    const blob = new Blob([excelDocument], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ملخص-الشركات-${this.claimsFilter.month}-${this.claimsFilter.year}.xls`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   generateClaims(): void {
     this.withLoading(this.salesClaimsService.generateClaims({
       month: this.claimsFilter.month,
@@ -640,8 +686,8 @@ export class AppComponent {
       allocations: this.chequeForm.allocations.map((allocation) => ({
         ...allocation,
         departmentName: allocation.departmentName?.trim() || null,
-        ChequeNumber: this.chequeForm.ChequeNumber,
-        BankName: this.chequeForm.BankName
+        ChequeNumber: this.chequeForm.ChequeNumber.trim() || null,
+        BankName: this.chequeForm.BankName.trim() || null
       }))
     };
 
@@ -977,7 +1023,7 @@ export class AppComponent {
 
   private createDefaultAllocations(prepared: ChequePrepareResponse): ChequeAllocation[] {
     if (!prepared.departments.length) {
-      return [{ departmentName: '', amount: prepared.amount }];
+      return [{ departmentName: '', amount: prepared.amount, ChequeNumber: null, BankName: null }];
     }
 
     const baseAmount = Math.floor((prepared.amount / prepared.departments.length) * 100) / 100;
@@ -985,7 +1031,9 @@ export class AppComponent {
       departmentName,
       amount: index === prepared.departments.length - 1
         ? Number((prepared.amount - baseAmount * index).toFixed(2))
-        : baseAmount
+        : baseAmount,
+      ChequeNumber: null,
+      BankName: null
     }));
   }
 

@@ -143,6 +143,8 @@ export interface ClaimDto {
   year: number;
   claimAmountAfterDiscount: number;
   correctedAmount: number | null;
+  notes: string | null;
+  discrepancyType: string | null;
   status: string;
   createdAt: string;
 }
@@ -179,8 +181,8 @@ export interface ChequePrepareResponse {
 export interface ChequeAllocation {
   departmentName: string | null;
   amount: number;
-  ChequeNumber?: string;
-  BankName?: string;
+  ChequeNumber: string | null;
+  BankName: string | null;
 }
 
 export interface CreateChequesRequest {

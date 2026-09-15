@@ -30,8 +30,7 @@
 
   <section class="login-panel" *ngIf="!session()">
     <div class="login-grid">
-
-            <div class="login-info-side">
+      <div class="login-info-side">
         <h2>نظام إدارة تعاقدات الصيدليات</h2>
         <p>
           منصة متكاملة لإدارة العقود بين الصيدليات والشركات، بتساعدك تتابع نسب
@@ -87,8 +86,6 @@
           </button>
         </form>
       </div>
-
-
     </div>
   </section>
 
@@ -106,7 +103,6 @@
             {{ showUserForm() ? "إلغاء" : "إضافة مستخدم" }}
           </button>
         </div>
-
       </div>
 
       <div class="user-form-container" *ngIf="showUserForm()">
@@ -171,8 +167,18 @@
         </form>
       </div>
 
-      <div class="user-form-container modal-form-container" *ngIf="showReviewerForm()">
-        <button type="button" class="modal-close" aria-label="إغلاق نموذج المراجع" (click)="closeReviewerForm()">×</button>
+      <div
+        class="user-form-container modal-form-container"
+        *ngIf="showReviewerForm()"
+      >
+        <button
+          type="button"
+          class="modal-close"
+          aria-label="إغلاق نموذج المراجع"
+          (click)="closeReviewerForm()"
+        >
+          ×
+        </button>
         <form
           id="adminReviewerForm"
           class="form-grid compact"
@@ -317,8 +323,18 @@
         </div>
       </div>
 
-      <div class="user-form-container modal-form-container" *ngIf="showReviewerForm()">
-        <button type="button" class="modal-close" aria-label="إغلاق نموذج المراجع" (click)="closeReviewerForm()">×</button>
+      <div
+        class="user-form-container modal-form-container"
+        *ngIf="showReviewerForm()"
+      >
+        <button
+          type="button"
+          class="modal-close"
+          aria-label="إغلاق نموذج المراجع"
+          (click)="closeReviewerForm()"
+        >
+          ×
+        </button>
         <form
           id="pharmacyReviewerForm"
           class="form-grid compact"
@@ -408,8 +424,18 @@
           </div>
         </div>
 
-        <div class="company-form-container modal-form-container" *ngIf="showCompanyForm()">
-          <button type="button" class="modal-close" aria-label="إغلاق نموذج الشركة" (click)="closeCompanyForm()">×</button>
+        <div
+          class="company-form-container modal-form-container"
+          *ngIf="showCompanyForm()"
+        >
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="إغلاق نموذج الشركة"
+            (click)="closeCompanyForm()"
+          >
+            ×
+          </button>
           <form
             id="companyForm"
             class="form-grid compact"
@@ -569,7 +595,10 @@
               </button>
             </div>
 
-            <form class="department-create-form" (ngSubmit)="createDepartment()">
+            <form
+              class="department-create-form"
+              (ngSubmit)="createDepartment()"
+            >
               <label>
                 اسم الإدارة
                 <input
@@ -579,12 +608,13 @@
                   required
                 />
               </label>
-              <button type="submit" [disabled]="loading()">
-                إضافة إدارة
-              </button>
+              <button type="submit" [disabled]="loading()">إضافة إدارة</button>
             </form>
 
-            <div class="table-wrap departments-table-wrap" *ngIf="departments().length">
+            <div
+              class="table-wrap departments-table-wrap"
+              *ngIf="departments().length"
+            >
               <table>
                 <thead>
                   <tr>
@@ -649,7 +679,6 @@
       >
         <div class="sales-upload-header">
           <div>
-
             <p class="eyebrow">الخطوة الثانية</p>
             <h3>رفع ملف Excel</h3>
           </div>
@@ -948,6 +977,14 @@
           >
             التالي: مطالبات الشركات
           </button>
+          <button
+            type="button"
+            class="ghost-button"
+            (click)="downloadClaimsSummaryExcel()"
+            [disabled]="!pivotData() || pivotLoading()"
+          >
+            تحميل Excel
+          </button>
         </div>
       </section>
 
@@ -1002,6 +1039,8 @@
                 <th>السنة</th>
                 <th>المبلغ بعد الخصم</th>
                 <th>المبلغ المصحح</th>
+                <th>سبب الاختلاف</th>
+                <th class="notes-column">الملاحظات</th>
                 <th>الحالة</th>
                 <th>مراجعة</th>
               </tr>
@@ -1019,6 +1058,21 @@
                       : formatMoney(claim.correctedAmount)
                   }}
                 </td>
+                <td>
+                  <ng-container [ngSwitch]="claim.discrepancyType">
+                    <span *ngSwitchCase="'Other'">أخرى</span>
+                    <span *ngSwitchCase="'ContractualDeduction'"
+                      >خصم تعاقدات</span
+                    >
+                    <span *ngSwitchCase="'DeferredToNextMonth'"
+                      >مؤجل لشهر قادم</span
+                    >
+                    <span *ngSwitchCase="'AccountingDeficit'">عجز محاسبي</span>
+                    <span *ngSwitchCase="'None'">لايوجد</span>
+                    <span *ngSwitchDefault>-</span>
+                  </ng-container>
+                </td>
+                <td class="notes-column">{{ claim.notes || "-" }}</td>
                 <td>{{ claim.status }}</td>
                 <td>
                   <div class="claim-actions">
@@ -1053,7 +1107,11 @@
                     </button>
 
                     <button
-                      *ngIf="isPharmacy() && claim.status === 'Reviewed' && !hasChequeForClaim(claim)"
+                      *ngIf="
+                        isPharmacy() &&
+                        claim.status === 'Reviewed' &&
+                        !hasChequeForClaim(claim)
+                      "
                       type="button"
                       class="text-button cheque-button"
                       (click)="prepareCheque(claim)"
@@ -1171,22 +1229,21 @@
         class="workflow-step-panel"
         *ngIf="activePharmacyStep() === 'claim-review'"
       >
-
-                    <div class="step-heading">
-              <div class="title">
+        <div class="step-heading">
+          <div class="title">
             <p class="eyebrow">الخطوة الخامسة</p>
             <h3>مراجعة المطالبة وتجهيز الشيكات</h3>
-              </div>
-              <div class="actions">
-                <button
-                  type="button"
-                  class="ghost-button"
-                  (click)="loadUpcomingCheques()"
-                >
-                  الشيكات المستحقة قريبًا
-                </button>
-              </div>
-            </div>
+          </div>
+          <div class="actions">
+            <button
+              type="button"
+              class="ghost-button"
+              (click)="loadUpcomingCheques()"
+            >
+              الشيكات المستحقة قريبًا
+            </button>
+          </div>
+        </div>
 
         <div class="review-cheque-grid">
           <section
@@ -1249,7 +1306,10 @@
             </div>
           </section>
 
-          <section class="mini-panel cheque-main-panel" *ngIf="isPharmacy() && preparedCheque()">
+          <section
+            class="mini-panel cheque-main-panel"
+            *ngIf="isPharmacy() && preparedCheque()"
+          >
             <div class="step-heading">
               <div class="title">
                 <h3>تجهيز وإنشاء الشيكات</h3>
@@ -1355,11 +1415,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                *ngFor="
-                  let cheque of displayedCheques()
-                "
-              >
+              <tr *ngFor="let cheque of displayedCheques()">
                 <td>{{ cheque.companyName }}</td>
                 <td dir="ltr">{{ cheque.chequeNumber || "-" }}</td>
                 <td>{{ cheque.bankName || "-" }}</td>
@@ -1476,9 +1532,7 @@
                   required
                 />
               </label>
-              <button type="submit" [disabled]="loading()">
-                حفظ الحالة
-              </button>
+              <button type="submit" [disabled]="loading()">حفظ الحالة</button>
             </form>
           </section>
         </div>
