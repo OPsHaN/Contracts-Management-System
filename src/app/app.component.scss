@@ -29,7 +29,7 @@ body {
   gap: 24px;
   margin-bottom: 20px;
   border-bottom: 1px solid rgba(15, 111, 75, 0.16);
-  padding: 20px 0px 0px;
+  padding: 10px 0px 0px;
 }
 
 .eyebrow {
@@ -114,8 +114,8 @@ h3 {
   font-size: 1.4rem;
   line-height: 1;
   cursor: pointer;
-  width:0;
-  margin:0 0 0 15px;
+  width: 0;
+  margin: 0 0 0 15px;
 }
 
 .login-panel,
@@ -305,7 +305,7 @@ h3 {
 
 .workflow-steps button.active span,
 .workflow-steps button.done span {
-  background: linear-gradient(135deg, #0f7a55, #0a5f42);
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
   color: #ffffff;
 }
 
@@ -344,6 +344,7 @@ h3 {
   color: #5d6a63;
   text-align: center;
   font-weight: 800;
+  margin-top: 25px;
 }
 
 .form-grid {
@@ -374,7 +375,7 @@ h3 {
 }
 
 .user-form-container {
-  border: 2px dashed #0f7a55;
+  border: 2px dashed #7f1d1d;
   border-radius: 20px;
   padding: 22px;
   background: #f9faf9;
@@ -496,7 +497,7 @@ button {
   border: 0;
   border-radius: 20px;
   padding: 0 16px;
-  background: linear-gradient(135deg, #0f7a55, #0a5f42);
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
   color: #ffffff;
   font-weight: 800;
   box-shadow: 0 10px 20px rgba(15, 122, 85, 0.18);
@@ -696,14 +697,13 @@ button:disabled {
 .table-wrap {
   overflow-x: auto;
   border-radius: 20px;
-  border:1px solid black
+  border: 1px solid black;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   // min-width: 720px;
-
 }
 
 th,
@@ -714,14 +714,12 @@ td {
   text-align: center;
 }
 
-
 th {
   color: #6a776f;
   font-size: 1rem;
   text-transform: uppercase;
   background: #f9faf9;
   border-bottom: 2px solid #0f7a55;
-  
 }
 
 // tbody tr {
@@ -738,8 +736,7 @@ tbody tr:hover {
   padding: 20px;
   margin-bottom: 22px;
   background:
-    linear-gradient(135deg, rgba(15, 122, 85, 0.08), transparent 42%),
-    #ffffff;
+    linear-gradient(135deg, rgba(15, 122, 85, 0.08), transparent 42%), #ffffff;
 }
 
 .reviewers-section {
@@ -867,7 +864,6 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(120px, 1fr)) auto;
   gap: 14px;
-  align-items: end;
 }
 
 .upload-actions {
@@ -877,6 +873,9 @@ tbody tr:hover {
 .upload-actions button {
   width: auto;
   min-width: 130px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .batch-progress,
@@ -1051,7 +1050,7 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 16px;
+  margin: 16px 0;
 }
 
 .mini-form {
@@ -1313,10 +1312,14 @@ dd {
   box-shadow: 0 14px 30px rgba(127, 29, 29, 0.14);
 }
 
-.workflow-steps button.active span,
-.workflow-steps button.done span,
-button:not(.ghost-button):not(.text-button) {
+.workflow-steps button.active span {
   background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+  color: #ffffff;
+}
+
+.workflow-steps button:not(.active) span {
+  background: #fff1f2;
+  color: #b91c1c;
 }
 
 .workflow-steps button {
@@ -1355,7 +1358,9 @@ button:not(.ghost-button):not(.text-button) {
   margin: 0;
   animation: none;
   transform: translate(-50%, -50%) !important;
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.58), 0 24px 70px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 0 100vmax rgba(0, 0, 0, 0.58),
+    0 24px 70px rgba(0, 0, 0, 0.3);
 }
 
 .modal-form-container .modal-close {
@@ -1385,13 +1390,13 @@ textarea:focus {
   color: #ffffff;
   box-shadow: none;
   margin: auto;
-    display: flex;
-    justify-content: space-between;
-    text-align: center;
-    align-content: center;
-    flex-wrap: nowrap;
-    flex-direction: row;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  text-align: center;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  align-items: center;
 }
 
 .ghost-button:hover:not(:disabled) {
@@ -1427,8 +1432,7 @@ tbody tr:hover {
 .sales-upload-panel {
   border-color: rgba(127, 29, 29, 0.16);
   background:
-    linear-gradient(135deg, rgba(185, 28, 28, 0.08), transparent 42%),
-    #ffffff;
+    linear-gradient(135deg, rgba(185, 28, 28, 0.08), transparent 42%), #ffffff;
 }
 
 .checkmark {
@@ -1506,3 +1510,51 @@ tbody tr:hover {
   box-shadow: none;
 }
 
+.excel-upload-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 5px;
+  border: 1.5px dashed #b91c1c;
+  border-radius: 16px;
+  background: #fff7f7;
+  color: #b91c1c;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.excel-upload-content:hover {
+  border-color: #b91c1c;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.excel-icon {
+  width: 44px;
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 12px;
+
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.excel-icon i {
+  font-size: 22px;
+}
+
+.excel-text strong {
+  color: #b91c1c;
+}
+
+.excel-text span {
+  color: #991b1b;
+}
+
+.upload-arrow {
+  color: #b91c1c;
+}

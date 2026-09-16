@@ -1,7 +1,6 @@
 <main class="app-shell">
   <header class="topbar">
     <div>
-      <p class="eyebrow">عقود الصيدليات</p>
       <h1>إدارة التعاقدات</h1>
     </div>
 
@@ -299,9 +298,9 @@
     <section class="content-panel" *ngIf="isPharmacy() || isClaimsReviewer()">
       <div class="panel-heading">
         <div>
-          <p class="eyebrow">
+          <!-- <p class="eyebrow">
             {{ isClaimsReviewer() ? "مراجع المطالبات" : "الصيدلية" }}
-          </p>
+          </p> -->
           <h2>
             {{
               isClaimsReviewer()
@@ -397,7 +396,7 @@
             [class.done]="index === 0 && companies().length > 0"
             (click)="setPharmacyStep(step.key)"
           >
-            <span>{{ index + 1 }}</span>
+            <span class="step-number">{{ index + 1 }}</span>
             <strong>{{ step.label }}</strong>
             <small>{{ step.hint }}</small>
           </button>
@@ -685,15 +684,52 @@
         </div>
 
         <div class="upload-grid">
-          <label>
-            ملف Excel
-            <input
-              type="file"
-              name="salesFile"
-              accept=".xlsx,.xls"
-              (change)="onSalesFileSelected($event)"
-            />
-          </label>
+<label class="excel-upload">
+  <input
+    id="salesFile"
+    type="file"
+    name="salesFile"
+    accept=".xlsx,.xls"
+    (change)="onSalesFileSelected($event)"
+    hidden
+  />
+
+  <label for="salesFile" class="excel-upload-content">
+<div class="excel-icon">
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
+      fill="currentColor"
+    />
+    <path
+      d="M14 2V8H20"
+      stroke="white"
+      stroke-width="1.5"
+    />
+    <path
+      d="M7 11L9 14L7 17M11 11L13 14L11 17"
+      stroke="white"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+</div>
+
+    <div class="excel-text">
+      <strong>اختر ملف Excel</strong>
+      <span>اضغط هنا لاختيار ملف .xlsx أو .xls</span>
+    </div>
+
+    <i class="pi pi-upload upload-arrow"></i>
+  </label>
+</label>
 
           <div class="upload-actions">
             <button
@@ -849,7 +885,7 @@
               (click)="generateClaims()"
               [disabled]="loading()"
             >
-              توليد المطالبات
+              إرسال المطالبات للمراجعة
             </button>
           </div>
         </form>
@@ -934,7 +970,7 @@
           </div>
 
           <div class="empty-state" *ngIf="!pivotData() && !pivotLoading()">
-            لا توجد بيانات معروضة بعد. اضغط تحديث البيانات أو ارفع ملف جديد.
+           لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض الجداول أو إرفع ملف جديد
           </div>
         </ng-container>
 
@@ -972,18 +1008,18 @@
         <div class="step-actions">
           <button
             type="button"
-            (click)="setPharmacyStep('claims')"
-            [disabled]="!claims().length"
-          >
-            التالي: مطالبات الشركات
-          </button>
-          <button
-            type="button"
             class="ghost-button"
             (click)="downloadClaimsSummaryExcel()"
             [disabled]="!pivotData() || pivotLoading()"
           >
             تحميل Excel
+          </button>
+          <button
+            type="button"
+            (click)="setPharmacyStep('claims')"
+            [disabled]="!claims().length"
+          >
+            التالي: مطالبات الشركات
           </button>
         </div>
       </section>
@@ -1098,7 +1134,11 @@
                     </button>
 
                     <button
-                      *ngIf="isPharmacy() && claim.status === 'Reviewed'"
+                      *ngIf="
+                        isPharmacy() &&
+                        claim.status === 'Reviewed' &&
+                        !hasChequeForClaim(claim)
+                      "
                       type="button"
                       class="text-button edit-button"
                       (click)="editClaimReview(claim)"
@@ -1126,7 +1166,7 @@
         </div>
 
         <div class="empty-state" *ngIf="!claimsLoading() && !claims().length">
-          لا توجد مطالبات للشهر والسنة المحددين .
+           لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض الجداول أو إرفع ملف جديد
         </div>
 
         <div
@@ -1393,6 +1433,10 @@
               </button>
             </div>
           </section>
+
+                    <div class="empty-state" *ngIf="!pivotData() && !pivotLoading()">
+           لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض الجداول أو إرفع ملف جديد
+          </div>
         </div>
 
         <div
@@ -1512,6 +1556,26 @@
 
             <form class="mini-form" (ngSubmit)="updateChequeStatus()">
               <label>
+                رقم الشيك
+                <input
+                  type="text"
+                  name="modalChequeNumber"
+                  [(ngModel)]="chequeStatusForm.chequeNumber"
+                  required
+                />
+              </label>
+
+              <label>
+                اسم البنك
+                <input
+                  type="text"
+                  name="modalBankName"
+                  [(ngModel)]="chequeStatusForm.bankName"
+                  required
+                />
+              </label>
+
+              <label>
                 الحالة
                 <select
                   name="modalChequeStatus"
@@ -1522,6 +1586,7 @@
                   <option value="Pending">قيد الانتظار</option>
                 </select>
               </label>
+
               <label *ngIf="chequeStatusForm.status === 'PartiallyPaid'">
                 المبلغ المتبقي
                 <input
@@ -1532,6 +1597,7 @@
                   required
                 />
               </label>
+
               <button type="submit" [disabled]="loading()">حفظ الحالة</button>
             </form>
           </section>
@@ -1564,7 +1630,7 @@
         © {{ currentYear() }}
       </p>
       <p class="mt-8 text-center text-sm font-medium text-slate-400">
-        Software Version 2.0.0
+        Software Version 2.5.0
       </p>
     </div>
   </footer>

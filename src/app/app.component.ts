@@ -1,8 +1,8 @@
-import { CommonModule } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { Observable, finalize } from 'rxjs';
+import { CommonModule } from "@angular/common";
+import { HttpErrorResponse } from "@angular/common/http";
+import { Component, computed, inject, signal } from "@angular/core";
+import { FormsModule } from "@angular/forms";
+import { Observable, finalize } from "rxjs";
 
 import {
   ChequeAllocation,
@@ -24,21 +24,26 @@ import {
   SalesBatchStatus,
   SalesBatchUploadResponse,
   UserDto,
-  UserRole
-} from './core/api.models';
-import { AuthService } from './core/auth.service';
-import { CompaniesService } from './core/companies.service';
-import { SalesClaimsService } from './core/sales-claims.service';
-import { UsersService } from './core/users.service';
+  UserRole,
+} from "./core/api.models";
+import { AuthService } from "./core/auth.service";
+import { CompaniesService } from "./core/companies.service";
+import { SalesClaimsService } from "./core/sales-claims.service";
+import { UsersService } from "./core/users.service";
 
-type PharmacyStep = 'companies' | 'upload' | 'claims-summary' | 'claims' | 'claim-review';
+type PharmacyStep =
+  | "companies"
+  | "upload"
+  | "claims-summary"
+  | "claims"
+  | "claim-review";
 
 @Component({
-  selector: 'app-root',
+  selector: "app-root",
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  templateUrl: "./app.component.html",
+  styleUrl: "./app.component.scss",
 })
 export class AppComponent {
   private readonly authService = inject(AuthService);
@@ -47,12 +52,14 @@ export class AppComponent {
   private readonly salesClaimsService = inject(SalesClaimsService);
 
   readonly session = this.authService.session;
-  readonly isSuperAdmin = computed(() => this.session()?.role === 'SuperAdmin');
-  readonly isPharmacy = computed(() => this.session()?.role === 'Pharmacy');
-  readonly isClaimsReviewer = computed(() => this.session()?.role === 'ClaimsReviewer');
+  readonly isSuperAdmin = computed(() => this.session()?.role === "SuperAdmin");
+  readonly isPharmacy = computed(() => this.session()?.role === "Pharmacy");
+  readonly isClaimsReviewer = computed(
+    () => this.session()?.role === "ClaimsReviewer",
+  );
 
   readonly loading = signal(false);
-  readonly message = signal('');
+  readonly message = signal("");
   readonly users = signal<UserDto[]>([]);
   readonly reviewers = signal<ReviewerDto[]>([]);
   readonly companies = signal<CompanyDto[]>([]);
@@ -86,8 +93,8 @@ export class AppComponent {
   readonly claimsLoading = signal(false);
   readonly batchPolling = signal(false);
   readonly uploadProgress = signal(0);
-  readonly activePharmacyStep = signal<PharmacyStep>('companies');
-  readonly appliedCompanyName = signal('');
+  readonly activePharmacyStep = signal<PharmacyStep>("companies");
+  readonly appliedCompanyName = signal("");
   readonly showLoginPassword = signal(false);
   readonly showUserPassword = signal(false);
   readonly editingClaimReview = signal(false);
@@ -100,8 +107,8 @@ export class AppComponent {
 
     return Array.from(uniqueCheques.values());
   });
-  readonly pivotGrandTotal = computed(() =>
-    this.pivotTotalsRow()?.grandTotal ?? 0
+  readonly pivotGrandTotal = computed(
+    () => this.pivotTotalsRow()?.grandTotal ?? 0,
   );
   readonly filteredPivotRows = computed(() => {
     const pivot = this.pivotData();
@@ -129,14 +136,20 @@ export class AppComponent {
     }
 
     const rows = this.filteredPivotRows();
-    const amountsByBranch = pivot.branches.reduce<Record<string, number>>((totals, branch) => {
-      totals[branch] = rows.reduce((sum, row) => sum + (row.amountsByBranch[branch] || 0), 0);
-      return totals;
-    }, {});
+    const amountsByBranch = pivot.branches.reduce<Record<string, number>>(
+      (totals, branch) => {
+        totals[branch] = rows.reduce(
+          (sum, row) => sum + (row.amountsByBranch[branch] || 0),
+          0,
+        );
+        return totals;
+      },
+      {},
+    );
 
     return {
       amountsByBranch,
-      grandTotal: rows.reduce((sum, row) => sum + row.total, 0)
+      grandTotal: rows.reduce((sum, row) => sum + row.total, 0),
     };
   });
   readonly companyOptions = computed(() => {
@@ -144,14 +157,16 @@ export class AppComponent {
 
     return Array.from(new Set(names))
       .filter(Boolean)
-      .sort((first, second) => first.localeCompare(second, 'ar'));
+      .sort((first, second) => first.localeCompare(second, "ar"));
   });
   readonly pharmacyOptions = computed(() => {
     const names = this.users()
-      .map((user) => user.pharmacyName?.trim() ?? '')
+      .map((user) => user.pharmacyName?.trim() ?? "")
       .filter(Boolean);
 
-    return Array.from(new Set(names)).sort((first, second) => first.localeCompare(second, 'ar'));
+    return Array.from(new Set(names)).sort((first, second) =>
+      first.localeCompare(second, "ar"),
+    );
   });
   readonly batchProgressPercent = computed(() => {
     const batch = this.batchDetails();
@@ -162,74 +177,93 @@ export class AppComponent {
 
     return Math.round((batch.processedRows / batch.totalRows) * 100);
   });
-  readonly pharmacySteps: { key: PharmacyStep; label: string; hint: string }[] = [
-    { key: 'companies', label: 'تسجيل الشركات', hint: 'إضافة ومراجعة بيانات التعاقد' },
-    { key: 'upload', label: 'رفع ملف المبيعات', hint: 'اختيار ملف Excel' },
-    { key: 'claims-summary', label: 'ملخص الشركات', hint: 'جدول الشركات والصيدليات' },
-    { key: 'claims', label: 'مطالبات الشركات', hint: 'المبالغ بعد الخصم والمراجعة' },
-    { key: 'claim-review', label: 'مراجعة المطالبة', hint: 'المطالبة والشيكات' }
-  ];
+  readonly pharmacySteps: { key: PharmacyStep; label: string; hint: string }[] =
+    [
+      {
+        key: "companies",
+        label: "تسجيل الشركات",
+        hint: "إضافة ومراجعة بيانات التعاقد",
+      },
+      { key: "upload", label: "رفع ملف المبيعات", hint: "اختيار ملف Excel" },
+      {
+        key: "claims-summary",
+        label: "ملخص الشركات",
+        hint: "جدول الشركات والصيدليات",
+      },
+      {
+        key: "claims",
+        label: "مطالبات الشركات",
+        hint: "المبالغ بعد الخصم والمراجعة",
+      },
+      {
+        key: "claim-review",
+        label: "مراجعة المطالبة",
+        hint: "المطالبة والشيكات",
+      },
+    ];
 
   loginForm = {
-    email: '',
-    password: 'ChangeThisP@ssw0rd123'
+    email: "",
+    password: "",
   };
 
   claimsFilter = {
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
-    companyName: ''
+    companyName: "",
   };
 
   reviewForm: ClaimReviewRequest = {
     isAccurate: false,
     correctedAmount: 0,
-    discrepancyType: 'Other',
-    notes: ''
+    discrepancyType: "Other",
+    notes: "",
   };
 
   chequeForm = {
     startDate: new Date().toISOString().slice(0, 10),
-    ChequeNumber: '',
-    BankName: '',
-    allocations: [] as ChequeAllocation[]
+    ChequeNumber: "",
+    BankName: "",
+    allocations: [] as ChequeAllocation[],
   };
 
   chequeStatusForm = {
-    chequeId: '',
-    status: 'PaidInFull' as 'Pending' | 'PaidInFull' | 'PartiallyPaid',
-    remainingAmount: null as number | null
+    chequeId: "",
+    status: "PaidInFull" as "Pending" | "PaidInFull" | "PartiallyPaid",
+    remainingAmount: null as number | null,
+    chequeNumber: "",
+    bankName: "",
   };
 
   userForm: CreateUserRequest = {
-    email: '',
-    password: '',
-    role: 'Pharmacy',
-    pharmacyName: ''
+    email: "",
+    password: "",
+    role: "Pharmacy",
+    pharmacyName: "",
   };
 
   reviewerForm: CreateReviewerRequest = {
-    email: '',
-    password: '',
-    role: 'ClaimsReviewer',
+    email: "",
+    password: "",
+    role: "ClaimsReviewer",
     isActive: true,
-    pharmacyName: null
+    pharmacyName: null,
   };
 
   companyForm: CompanyRequest = this.emptyCompanyForm();
 
   departmentForm: CreateDepartmentRequest = {
-    name: ''
+    name: "",
   };
 
   login(): void {
     this.withLoading(this.authService.login(this.loginForm)).subscribe({
-        next: () => {
-          this.message.set('تم تسجيل الدخول بنجاح.');
-          this.loadRoleData();
-        },
-        error: (error) => this.showError(error)
-      });
+      next: () => {
+        this.message.set("تم تسجيل الدخول بنجاح.");
+        this.loadRoleData();
+      },
+      error: (error) => this.showError(error),
+    });
   }
 
   logout(): void {
@@ -237,11 +271,11 @@ export class AppComponent {
     this.users.set([]);
     this.companies.set([]);
     this.clearSalesData();
-    this.message.set('تم تسجيل الخروج.');
+    this.message.set("تم تسجيل الخروج.");
   }
 
   closeNotice(): void {
-    this.message.set('');
+    this.message.set("");
   }
 
   closeClaimDetails(): void {
@@ -255,7 +289,7 @@ export class AppComponent {
 
   openDepartmentsModal(company: CompanyRespons): void {
     this.selectedCompanyForDepartments.set(company);
-    this.departmentForm = { name: '' };
+    this.departmentForm = { name: "" };
     this.showDepartmentsModal.set(true);
     this.loadDepartments(company.id);
   }
@@ -264,7 +298,7 @@ export class AppComponent {
     this.showDepartmentsModal.set(false);
     this.selectedCompanyForDepartments.set(null);
     this.departments.set([]);
-    this.departmentForm = { name: '' };
+    this.departmentForm = { name: "" };
   }
 
   loadDepartments(companyId = this.selectedCompanyForDepartments()?.id): void {
@@ -272,10 +306,12 @@ export class AppComponent {
       return;
     }
 
-    this.withLoading(this.companiesService.getDepartments(companyId)).subscribe({
-      next: (departments) => this.departments.set(departments),
-      error: (error) => this.showError(error)
-    });
+    this.withLoading(this.companiesService.getDepartments(companyId)).subscribe(
+      {
+        next: (departments) => this.departments.set(departments),
+        error: (error) => this.showError(error),
+      },
+    );
   }
 
   createDepartment(): void {
@@ -283,17 +319,19 @@ export class AppComponent {
     const name = this.departmentForm.name.trim();
 
     if (!companyId || !name) {
-      this.message.set('اكتب اسم الإدارة أولًا.');
+      this.message.set("اكتب اسم الإدارة أولًا.");
       return;
     }
 
-    this.withLoading(this.companiesService.createDepartment(companyId, { name })).subscribe({
+    this.withLoading(
+      this.companiesService.createDepartment(companyId, { name }),
+    ).subscribe({
       next: (department) => {
         this.departments.update((departments) => [...departments, department]);
-        this.departmentForm = { name: '' };
-        this.message.set('تمت إضافة الإدارة.');
+        this.departmentForm = { name: "" };
+        this.message.set("تمت إضافة الإدارة.");
       },
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
@@ -304,14 +342,18 @@ export class AppComponent {
       return;
     }
 
-    this.withLoading(this.companiesService.deleteDepartment(companyId, department.id)).subscribe({
+    this.withLoading(
+      this.companiesService.deleteDepartment(companyId, department.id),
+    ).subscribe({
       next: () => {
         this.departments.update((departments) =>
-          departments.filter((currentDepartment) => currentDepartment.id !== department.id)
+          departments.filter(
+            (currentDepartment) => currentDepartment.id !== department.id,
+          ),
         );
-        this.message.set('تم حذف الإدارة.');
+        this.message.set("تم حذف الإدارة.");
       },
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
@@ -319,8 +361,8 @@ export class AppComponent {
     this.showReviewerForm.set(false);
   }
 
-  togglePasswordVisibility(passwordType: 'login' | 'user'): void {
-    if (passwordType === 'login') {
+  togglePasswordVisibility(passwordType: "login" | "user"): void {
+    if (passwordType === "login") {
       this.showLoginPassword.update((visible) => !visible);
       return;
     }
@@ -338,15 +380,15 @@ export class AppComponent {
     }
 
     if (this.isClaimsReviewer()) {
-      this.claimsFilter.companyName = '';
-      this.appliedCompanyName.set('');
-      this.activePharmacyStep.set('claims');
+      this.claimsFilter.companyName = "";
+      this.appliedCompanyName.set("");
+      this.activePharmacyStep.set("claims");
       this.loadClaims();
     }
   }
 
   canShowStep(step: PharmacyStep): boolean {
-    return this.isPharmacy() || step === 'claims';
+    return this.isPharmacy() || step === "claims";
   }
 
   setPharmacyStep(step: PharmacyStep): void {
@@ -368,23 +410,25 @@ export class AppComponent {
     const pharmacyId = this.session()?.userId;
 
     if (!file) {
-      this.message.set('اختار ملف Excel الأول.');
+      this.message.set("اختار ملف Excel الأول.");
       return;
     }
 
     if (!pharmacyId) {
-      this.message.set('لا يمكن تحديد الصيدلية الحالية. سجّل الدخول مرة أخرى.');
+      this.message.set("لا يمكن تحديد الصيدلية الحالية. سجّل الدخول مرة أخرى.");
       return;
     }
 
-    this.withLoading(this.salesClaimsService.uploadSalesBatch(pharmacyId, file)).subscribe({
+    this.withLoading(
+      this.salesClaimsService.uploadSalesBatch(pharmacyId, file),
+    ).subscribe({
       next: (response) => {
         this.uploadResult.set(response);
         this.uploadProgress.set(100);
-        this.message.set('جاري رفع الملف والتأكد من بياناته.');
+        this.message.set("جاري رفع الملف والتأكد من بياناته.");
         this.pollSalesBatch(response.batchId);
       },
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
@@ -398,15 +442,15 @@ export class AppComponent {
       next: (batch) => {
         this.batchDetails.set(batch);
 
-        if (batch.status === 'Completed') {
+        if (batch.status === "Completed") {
           this.batchPolling.set(false);
-          this.message.set('تم رفع الملف بنجاح والتأكد من بياناته.');
+          this.message.set("تم رفع الملف بنجاح والتأكد من بياناته.");
           return;
         }
 
-        if (batch.status === 'Failed') {
+        if (batch.status === "Failed") {
           this.batchPolling.set(false);
-          this.message.set(batch.errorLog || 'فشلت معالجة الملف.');
+          this.message.set(batch.errorLog || "فشلت معالجة الملف.");
           return;
         }
 
@@ -415,13 +459,13 @@ export class AppComponent {
       error: (error) => {
         this.batchPolling.set(false);
         this.showError(error);
-      }
+      },
     });
   }
 
   applyClaimsFilters(): void {
-    this.claimsFilter.companyName = '';
-    this.appliedCompanyName.set('');
+    this.claimsFilter.companyName = "";
+    this.appliedCompanyName.set("");
     this.companyInsights.set(null);
     this.preparedCheque.set(null);
     this.selectedClaim.set(null);
@@ -451,42 +495,46 @@ export class AppComponent {
     const pivot = this.pivotData();
 
     if (!pivot) {
-      this.message.set('حمّل ملخص الشركات أولًا قبل تنزيل ملف Excel.');
+      this.message.set("حمّل ملخص الشركات أولًا قبل تنزيل ملف Excel.");
       return;
     }
 
-    const headers = ['اسم الشركة', ...pivot.branches, 'الإجمالي'];
+    const headers = ["اسم الشركة", ...pivot.branches, "الإجمالي"];
     const rows = this.filteredPivotRows().map((row) => [
       row.companyName,
       ...pivot.branches.map((branch) => row.amountsByBranch[branch] || 0),
-      row.total
+      row.total,
     ]);
     const totals = this.pivotTotalsRow();
     const tableRows = totals
       ? [
           ...rows,
           [
-            'الإجمالي',
-            ...pivot.branches.map((branch) => totals.amountsByBranch[branch] || 0),
-            totals.grandTotal
-          ]
+            "الإجمالي",
+            ...pivot.branches.map(
+              (branch) => totals.amountsByBranch[branch] || 0,
+            ),
+            totals.grandTotal,
+          ],
         ]
       : rows;
     const escapeCell = (value: string | number) =>
       String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     const table = `
       <table border="1">
-        <thead><tr>${headers.map((header) => `<th>${escapeCell(header)}</th>`).join('')}</tr></thead>
-        <tbody>${tableRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeCell(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+        <thead><tr>${headers.map((header) => `<th>${escapeCell(header)}</th>`).join("")}</tr></thead>
+        <tbody>${tableRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeCell(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
       </table>`;
     const excelDocument = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body dir="rtl">${table}</body></html>`;
-    const blob = new Blob([excelDocument], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const blob = new Blob([excelDocument], {
+      type: "application/vnd.ms-excel;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
     link.download = `ملخص-الشركات-${this.claimsFilter.month}-${this.claimsFilter.year}.xls`;
     link.click();
@@ -494,42 +542,49 @@ export class AppComponent {
   }
 
   generateClaims(): void {
-    this.withLoading(this.salesClaimsService.generateClaims({
-      month: this.claimsFilter.month,
-      year: this.claimsFilter.year
-    })).subscribe({
+    this.withLoading(
+      this.salesClaimsService.generateClaims({
+        month: this.claimsFilter.month,
+        year: this.claimsFilter.year,
+      }),
+    ).subscribe({
       next: (claims) => {
         this.claims.set(claims);
-        this.message.set('تم توليد المطالبات بنجاح.');
+        this.message.set("تم توليد المطالبات بنجاح.");
         this.loadClaimsPivot();
       },
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
   loadClaimsPivot(): void {
     this.pivotLoading.set(true);
-    this.salesClaimsService.getClaimsPivot(this.claimsFilter.month, this.claimsFilter.year)
+    this.salesClaimsService
+      .getClaimsPivot(this.claimsFilter.month, this.claimsFilter.year)
       .pipe(finalize(() => this.pivotLoading.set(false)))
       .subscribe({
         next: (pivot) => this.pivotData.set(pivot),
-        error: (error) => this.showError(error)
+        error: (error) => this.showError(error),
       });
   }
 
   loadClaims(): void {
     if (this.isClaimsReviewer()) {
-      this.claimsFilter.companyName = '';
+      this.claimsFilter.companyName = "";
     }
 
     this.claimsLoading.set(true);
-    this.salesClaimsService.getClaims(this.claimsFilter.month, this.claimsFilter.year)
+    this.salesClaimsService
+      .getClaims(this.claimsFilter.month, this.claimsFilter.year)
       .pipe(finalize(() => this.claimsLoading.set(false)))
       .subscribe({
-        next: (claims) => this.claims.set(
-          this.isClaimsReviewer() ? claims : this.filterClaimsByCompany(claims)
-        ),
-        error: (error) => this.showError(error)
+        next: (claims) =>
+          this.claims.set(
+            this.isClaimsReviewer()
+              ? claims
+              : this.filterClaimsByCompany(claims),
+          ),
+        error: (error) => this.showError(error),
       });
   }
 
@@ -541,41 +596,52 @@ export class AppComponent {
       return;
     }
 
-    this.salesClaimsService.getCompanyInsights(companyName, this.claimsFilter.month, this.claimsFilter.year).subscribe({
-      next: (insights) => this.companyInsights.set(insights),
-      error: (error) => this.showError(error)
-    });
+    this.salesClaimsService
+      .getCompanyInsights(
+        companyName,
+        this.claimsFilter.month,
+        this.claimsFilter.year,
+      )
+      .subscribe({
+        next: (insights) => this.companyInsights.set(insights),
+        error: (error) => this.showError(error),
+      });
   }
 
   selectClaim(claim: ClaimDto): void {
-    const wasAlreadyPending = claim.status === 'Pending';
+    const wasAlreadyPending = claim.status === "Pending";
     const pendingClaim: ClaimDto = {
       ...claim,
-      status: 'Pending'
+      status: "Pending",
     };
 
     this.claims.update((claims) =>
-      claims.map((currentClaim) => currentClaim.id === claim.id ? pendingClaim : currentClaim)
+      claims.map((currentClaim) =>
+        currentClaim.id === claim.id ? pendingClaim : currentClaim,
+      ),
     );
     this.selectedClaim.set(pendingClaim);
     this.claimsFilter.companyName = pendingClaim.companyName;
     this.reviewForm = {
       isAccurate: false,
-      correctedAmount: pendingClaim.correctedAmount ?? pendingClaim.claimAmountAfterDiscount,
-      discrepancyType: 'Other',
-      notes: ''
+      correctedAmount:
+        pendingClaim.correctedAmount ?? pendingClaim.claimAmountAfterDiscount,
+      discrepancyType: "Other",
+      notes: "",
     };
 
     if (this.isPharmacy()) {
       this.message.set(
         wasAlreadyPending
-          ? 'تم إرسال المطالبة بالفعل للمراجعة، وهي في انتظار رد الفريق المختص.'
-          : 'تم إرسال المطالبة للمراجعة للفريق المختص، وسيتم تجهيز الشيك بعد الرد.'
+          ? "تم إرسال المطالبة بالفعل للمراجعة، وهي في انتظار رد الفريق المختص."
+          : "تم إرسال المطالبة للمراجعة للفريق المختص، وسيتم تجهيز الشيك بعد الرد.",
       );
       return;
     }
 
-    this.message.set('المطالبة في انتظار رد المراجع، وسيتم تجهيز الشيك بعد المراجعة.');
+    this.message.set(
+      "المطالبة في انتظار رد المراجع، وسيتم تجهيز الشيك بعد المراجعة.",
+    );
     this.loadClaimReview(pendingClaim.id);
   }
 
@@ -583,13 +649,13 @@ export class AppComponent {
     const claim = this.selectedClaim();
 
     if (!claim) {
-      this.message.set('اختار مطالبة الأول.');
+      this.message.set("اختار مطالبة الأول.");
       return;
     }
 
     const reviewPayload: ClaimReviewRequest = {
       ...this.reviewForm,
-      isAccurate: this.reviewForm.isAccurate === true
+      isAccurate: this.reviewForm.isAccurate === true,
     };
 
     const request$ = this.editingClaimReview()
@@ -601,19 +667,21 @@ export class AppComponent {
         this.selectedClaimReview.set(review);
         const reviewedClaim: ClaimDto = {
           ...(this.selectedClaim() ?? claim),
-          status: 'Reviewed'
+          status: "Reviewed",
         };
         this.selectedClaim.set(reviewedClaim);
         this.claims.update((claims) =>
-          claims.map((currentClaim) => currentClaim.id === reviewedClaim.id ? reviewedClaim : currentClaim)
+          claims.map((currentClaim) =>
+            currentClaim.id === reviewedClaim.id ? reviewedClaim : currentClaim,
+          ),
         );
-        this.message.set('تم حفظ مراجعة المطالبة.');
+        this.message.set("تم حفظ مراجعة المطالبة.");
         this.editingClaimReview.set(false);
         if (this.isPharmacy()) {
           this.loadClaims();
         }
       },
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
@@ -623,8 +691,8 @@ export class AppComponent {
     this.reviewForm = {
       isAccurate: false,
       correctedAmount: claim.correctedAmount ?? claim.claimAmountAfterDiscount,
-      discrepancyType: 'Other',
-      notes: ''
+      discrepancyType: "Other",
+      notes: "",
     };
     this.loadClaimReview(claim.id);
   }
@@ -641,15 +709,16 @@ export class AppComponent {
           isAccurate: review.isAccurate,
           correctedAmount: review.correctedAmount,
           discrepancyType: review.discrepancyType,
-          notes: review.notes
+          notes: review.notes,
         };
       },
-      error: () => this.selectedClaimReview.set(null)
+      error: () => this.selectedClaimReview.set(null),
     });
   }
 
   prepareCheque(claim?: ClaimDto): void {
-    const companyName = claim?.companyName.trim() || this.claimsFilter.companyName.trim();
+    const companyName =
+      claim?.companyName.trim() || this.claimsFilter.companyName.trim();
 
     if (claim) {
       this.claimsFilter.companyName = claim.companyName;
@@ -658,18 +727,24 @@ export class AppComponent {
     }
 
     if (!companyName) {
-      this.message.set('اكتب اسم الشركة لتجهيز الشيك.');
+      this.message.set("اكتب اسم الشركة لتجهيز الشيك.");
       return;
     }
 
-    this.withLoading(this.salesClaimsService.prepareCheque(companyName, this.claimsFilter.month, this.claimsFilter.year)).subscribe({
+    this.withLoading(
+      this.salesClaimsService.prepareCheque(
+        companyName,
+        this.claimsFilter.month,
+        this.claimsFilter.year,
+      ),
+    ).subscribe({
       next: (prepared) => {
         this.preparedCheque.set(prepared);
         this.chequeForm.allocations = this.createDefaultAllocations(prepared);
-        this.activePharmacyStep.set('claim-review');
-        this.message.set('تم تجهيز بيانات الشيك بنجاح.');
+        this.activePharmacyStep.set("claim-review");
+        this.message.set("تم تجهيز بيانات الشيك بنجاح.");
       },
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
@@ -677,7 +752,7 @@ export class AppComponent {
     const prepared = this.preparedCheque();
 
     if (!prepared) {
-      this.message.set('جهّز الشيك الأول.');
+      this.message.set("جهّز الشيك الأول.");
       return;
     }
 
@@ -687,11 +762,13 @@ export class AppComponent {
         ...allocation,
         departmentName: allocation.departmentName?.trim() || null,
         ChequeNumber: this.chequeForm.ChequeNumber.trim() || null,
-        BankName: this.chequeForm.BankName.trim() || null
-      }))
+        BankName: this.chequeForm.BankName.trim() || null,
+      })),
     };
 
-    this.withLoading(this.salesClaimsService.createCheques(prepared.claimId, payload)).subscribe({
+    this.withLoading(
+      this.salesClaimsService.createCheques(prepared.claimId, payload),
+    ).subscribe({
       next: (cheques) => {
         const mergeCheques = (existing: ChequeDto[]) => {
           const uniqueCheques = new Map<string, ChequeDto>();
@@ -708,29 +785,35 @@ export class AppComponent {
         this.createdChequeClaimIds.update((claimIds) =>
           claimIds.includes(prepared.claimId)
             ? claimIds
-            : [...claimIds, prepared.claimId]
+            : [...claimIds, prepared.claimId],
         );
         this.preparedCheque.set(null);
-        this.message.set('تم إنشاء الشيكات.');
+        this.message.set("تم إنشاء الشيكات.");
       },
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
   hasChequeForClaim(claim: ClaimDto): boolean {
-    return this.createdChequeClaimIds().includes(claim.id)
-      || this.displayedCheques().some((cheque) => cheque.companyName === claim.companyName);
+    return (
+      this.createdChequeClaimIds().includes(claim.id) ||
+      this.displayedCheques().some(
+        (cheque) => cheque.companyName === claim.companyName,
+      )
+    );
   }
 
   loadCheques(): void {
-    this.salesClaimsService.getCheques(
-      this.claimsFilter.companyName.trim() || undefined,
-      this.claimsFilter.month,
-      this.claimsFilter.year
-    ).subscribe({
-      next: (cheques) => this.cheques.set(cheques),
-      error: (error) => this.showError(error)
-    });
+    this.salesClaimsService
+      .getCheques(
+        this.claimsFilter.companyName.trim() || undefined,
+        this.claimsFilter.month,
+        this.claimsFilter.year,
+      )
+      .subscribe({
+        next: (cheques) => this.cheques.set(cheques),
+        error: (error) => this.showError(error),
+      });
   }
 
   loadUpcomingCheques(): void {
@@ -739,7 +822,7 @@ export class AppComponent {
         this.upcomingCheques.set(cheques);
         this.showUpcomingChequesModal.set(true);
       },
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
@@ -751,9 +834,12 @@ export class AppComponent {
     this.selectedChequeForStatus.set(cheque);
     this.chequeStatusForm = {
       chequeId: cheque.id,
-      status: cheque.status as 'Pending' | 'PaidInFull' | 'PartiallyPaid',
-      remainingAmount: cheque.remainingAmount
+      status: cheque.status as "Pending" | "PaidInFull" | "PartiallyPaid",
+      remainingAmount: cheque.remainingAmount,
+      chequeNumber: cheque.chequeNumber,
+      bankName: cheque.bankName,
     };
+
     this.showChequeStatusModal.set(true);
   }
 
@@ -762,52 +848,64 @@ export class AppComponent {
     this.selectedChequeForStatus.set(null);
   }
 
-
   updateChequeStatus(): void {
     if (!this.chequeStatusForm.chequeId) {
-      this.message.set('اختار شيك لتحديث حالته.');
+      this.message.set("اختار شيك لتحديث حالته.");
       return;
     }
 
     const payload = {
+      chequeNumber: this.chequeStatusForm.chequeNumber,
+      bankName: this.chequeStatusForm.bankName,
       status: this.chequeStatusForm.status,
-      remainingAmount: this.chequeStatusForm.status === 'PartiallyPaid'
-        ? this.chequeStatusForm.remainingAmount
-        : null
+      remainingAmount:
+        this.chequeStatusForm.status === "PartiallyPaid"
+          ? this.chequeStatusForm.remainingAmount
+          : null,
     };
 
-    this.withLoading(this.salesClaimsService.updateChequeStatus(this.chequeStatusForm.chequeId, payload)).subscribe({
+    this.withLoading(
+      this.salesClaimsService.updateChequeStatus(
+        this.chequeStatusForm.chequeId,
+        payload,
+      ),
+    ).subscribe({
       next: () => {
-        const updateCheque = (cheques: ChequeDto[]) => cheques.map((cheque) =>
-          cheque.id === this.chequeStatusForm.chequeId
-            ? {
-                ...cheque,
-                status: payload.status,
-                remainingAmount: payload.remainingAmount
-              }
-            : cheque
-        );
+        const updateCheque = (cheques: ChequeDto[]) =>
+          cheques.map((cheque) =>
+            cheque.id === this.chequeStatusForm.chequeId
+              ? {
+                  ...cheque,
+                  chequeNumber: payload.chequeNumber,
+                  bankName: payload.bankName,
+                  status: payload.status,
+                  remainingAmount: payload.remainingAmount,
+                }
+              : cheque,
+          );
 
         this.cheques.update(updateCheque);
         this.upcomingCheques.update(updateCheque);
-        this.message.set('تم تحديث حالة الشيك.');
+
+        this.message.set("تم تحديث بيانات الشيك بنجاح.");
         this.closeChequeStatusModal();
       },
-      error: (error) => this.showError(error)
+
+      error: (error) => this.showError(error),
     });
   }
 
   loadUsers(): void {
     this.withLoading(this.usersService.getUsers()).subscribe({
-        next: (users) => this.users.set(users),
-        error: (error) => this.showError(error)
-      });
+      next: (users) => this.users.set(users),
+      error: (error) => this.showError(error),
+    });
   }
 
   loadReviewers(): void {
     this.withLoading(this.usersService.getReviewers()).subscribe({
       next: (reviewers) => this.reviewers.set(reviewers),
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
@@ -818,69 +916,85 @@ export class AppComponent {
 
     if (shouldShow) {
       this.reviewerForm.pharmacyName = this.isPharmacy()
-        ? this.session()?.pharmacyName ?? null
+        ? (this.session()?.pharmacyName ?? null)
         : null;
     }
   }
 
   createReviewer(): void {
-    this.withLoading(this.usersService.createReviewer(this.reviewerForm)).subscribe({
+    this.withLoading(
+      this.usersService.createReviewer(this.reviewerForm),
+    ).subscribe({
       next: (reviewer) => {
         this.reviewers.update((reviewers) => [reviewer, ...reviewers]);
         this.reviewerForm = {
-          email: '',
-          password: '',
-          role: 'ClaimsReviewer',
+          email: "",
+          password: "",
+          role: "ClaimsReviewer",
           isActive: true,
-          pharmacyName: null
+          pharmacyName: null,
         };
         this.showReviewerForm.set(false);
-        this.message.set('تم إنشاء المراجع بنجاح.');
+        this.message.set("تم إنشاء المراجع بنجاح.");
       },
-      error: (error) => this.showError(error)
+      error: (error) => this.showError(error),
     });
   }
 
   createUser(): void {
     const payload: CreateUserRequest = {
       ...this.userForm,
-      pharmacyName: this.userForm.role === 'Pharmacy' ? this.userForm.pharmacyName : null
+      pharmacyName:
+        this.userForm.role === "Pharmacy" ? this.userForm.pharmacyName : null,
     };
 
     this.withLoading(this.usersService.createUser(payload)).subscribe({
-        next: () => {
-          this.message.set('تم إنشاء الحساب.');
-          this.userForm = { email: '', password: '', role: 'Pharmacy', pharmacyName: '' };
-          this.loadUsers();
-        },
-        error: (error) => this.showError(error)
-      });
+      next: () => {
+        this.message.set("تم إنشاء الحساب.");
+        this.userForm = {
+          email: "",
+          password: "",
+          role: "Pharmacy",
+          pharmacyName: "",
+        };
+        this.loadUsers();
+      },
+      error: (error) => this.showError(error),
+    });
   }
 
   updateUserStatus(user: UserDto): void {
-    this.withLoading(this.usersService.updateStatus(user.id, { isActive: !user.isActive })).subscribe({
-        next: () => {
-          this.message.set(user.isActive ? 'تم إيقاف الحساب.' : 'تم تفعيل الحساب.');
-          this.loadUsers();
-        },
-        error: (error) => this.showError(error)
-      });
+    this.withLoading(
+      this.usersService.updateStatus(user.id, { isActive: !user.isActive }),
+    ).subscribe({
+      next: () => {
+        this.message.set(
+          user.isActive ? "تم إيقاف الحساب." : "تم تفعيل الحساب.",
+        );
+        this.loadUsers();
+      },
+      error: (error) => this.showError(error),
+    });
   }
 
   loadCompanies(pageNumber = this.pageNumber()): void {
-    this.withLoading(this.companiesService.getCompanies(pageNumber, 10)).subscribe({
-        next: (page) => {
-          const companyResponses = page.items as unknown as CompanyRespons[];
-          this.companiesRespons.set(companyResponses);
-          this.companies.set(companyResponses.map((company) => ({
+    this.withLoading(
+      this.companiesService.getCompanies(pageNumber, 10),
+    ).subscribe({
+      next: (page) => {
+        const companyResponses = page.items as unknown as CompanyRespons[];
+        this.companiesRespons.set(companyResponses);
+        this.companies.set(
+          companyResponses.map((company) => ({
             ...company,
-            Discount: company.discount
-          })));
-          this.pageNumber.set(page.pageNumber);
-          this.totalPages.set(page.totalPages);
-        },
-        error: (error) => this.showError(error)
-      });
+            Discount: company.discount,
+          })),
+        );
+        this.pageNumber.set(page.pageNumber);
+        this.totalPages.set(page.totalPages);
+      },
+      error: (error) => this.showError(error),
+    });
   }
 
   saveCompany(): void {
@@ -890,14 +1004,14 @@ export class AppComponent {
       : this.companiesService.createCompany(this.companyForm);
 
     this.withLoading(request).subscribe({
-        next: () => {
-          this.message.set(editingId ? 'تم تحديث الشركة.' : 'تم إنشاء الشركة.');
-          this.showCompanyForm.set(false);
-          this.cancelCompanyEdit();
-          this.loadCompanies();
-        },
-        error: (error) => this.showError(error)
-      });
+      next: () => {
+        this.message.set(editingId ? "تم تحديث الشركة." : "تم إنشاء الشركة.");
+        this.showCompanyForm.set(false);
+        this.cancelCompanyEdit();
+        this.loadCompanies();
+      },
+      error: (error) => this.showError(error),
+    });
   }
 
   editCompany(company: CompanyRespons): void {
@@ -909,8 +1023,9 @@ export class AppComponent {
       localDiscountPercentage: company.localDiscountPercentage,
       importedDiscountPercentage: company.importedDiscountPercentage,
       taxPercentage: company.taxPercentage,
-      administrativeExpensesPercentage: company.administrativeExpensesPercentage,
-      chequeSettlementPeriodInDays: company.chequeSettlementPeriodInDays
+      administrativeExpensesPercentage:
+        company.administrativeExpensesPercentage,
+      chequeSettlementPeriodInDays: company.chequeSettlementPeriodInDays,
     };
   }
 
@@ -922,29 +1037,34 @@ export class AppComponent {
 
   onRoleChange(role: UserRole): void {
     this.userForm.role = role;
-    this.userForm.pharmacyName = role === 'Pharmacy' ? this.userForm.pharmacyName ?? '' : null;
+    this.userForm.pharmacyName =
+      role === "Pharmacy" ? (this.userForm.pharmacyName ?? "") : null;
   }
 
   private withLoading<T>(source$: Observable<T>): Observable<T> {
     this.loading.set(true);
-    this.message.set('');
+    this.message.set("");
     return source$.pipe(finalize(() => this.loading.set(false)));
   }
 
   private showError(error: HttpErrorResponse): void {
     const errors = error.error?.errors;
-    this.message.set(Array.isArray(errors) ? errors.join(' ') : 'فشل الطلب. تأكد من اتصال الـ API وحاول مرة أخرى.');
+    this.message.set(
+      Array.isArray(errors)
+        ? errors.join(" ")
+        : "فشل الطلب. تأكد من اتصال الـ API وحاول مرة أخرى.",
+    );
   }
 
   private emptyCompanyForm(): CompanyRequest {
     return {
-      name: '',
+      name: "",
       Discount: 0,
       localDiscountPercentage: 0,
       importedDiscountPercentage: 0,
       taxPercentage: 14,
       administrativeExpensesPercentage: 0,
-      chequeSettlementPeriodInDays: 30
+      chequeSettlementPeriodInDays: 30,
     };
   }
 
@@ -953,23 +1073,23 @@ export class AppComponent {
   }
 
   displayRole(role: UserRole): string {
-    if (role === 'SuperAdmin') {
-      return 'مدير نظام';
+    if (role === "SuperAdmin") {
+      return "مدير نظام";
     }
 
-    if (role === 'ClaimsReviewer') {
-      return 'مراجع مطالبات';
+    if (role === "ClaimsReviewer") {
+      return "مراجع مطالبات";
     }
 
-    return 'صيدلية';
+    return "صيدلية";
   }
 
   displayBatchStatus(status: string): string {
     const labels: Record<string, string> = {
-      Pending: 'قيد الانتظار',
-      Processing: 'جاري المعالجة',
-      Completed: 'مكتمل',
-      Failed: 'فشل'
+      Pending: "قيد الانتظار",
+      Processing: "جاري المعالجة",
+      Completed: "مكتمل",
+      Failed: "فشل",
     };
 
     return labels[status] ?? status;
@@ -977,18 +1097,18 @@ export class AppComponent {
 
   displayChequeStatus(status: string): string {
     const labels: Record<string, string> = {
-      Pending: 'قيد الانتظار',
-      PaidInFull: 'مدفوع بالكامل',
-      PartiallyPaid: 'مدفوع جزئيًا'
+      Pending: "قيد الانتظار",
+      PaidInFull: "مدفوع بالكامل",
+      PartiallyPaid: "مدفوع جزئيًا",
     };
 
     return labels[status] ?? status;
   }
 
   formatMoney(value: number): string {
-    const formattedValue = new Intl.NumberFormat('en-US', {
+    const formattedValue = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(value);
 
     return `${formattedValue} ج.م`;
@@ -1006,7 +1126,7 @@ export class AppComponent {
     this.preparedCheque.set(null);
     this.cheques.set([]);
     this.upcomingCheques.set([]);
-    this.appliedCompanyName.set('');
+    this.appliedCompanyName.set("");
     this.batchPolling.set(false);
     this.uploadProgress.set(0);
   }
@@ -1021,19 +1141,30 @@ export class AppComponent {
     return claims.filter((claim) => claim.companyName.includes(companyName));
   }
 
-  private createDefaultAllocations(prepared: ChequePrepareResponse): ChequeAllocation[] {
+  private createDefaultAllocations(
+    prepared: ChequePrepareResponse,
+  ): ChequeAllocation[] {
     if (!prepared.departments.length) {
-      return [{ departmentName: '', amount: prepared.amount, ChequeNumber: null, BankName: null }];
+      return [
+        {
+          departmentName: "",
+          amount: prepared.amount,
+          ChequeNumber: null,
+          BankName: null,
+        },
+      ];
     }
 
-    const baseAmount = Math.floor((prepared.amount / prepared.departments.length) * 100) / 100;
+    const baseAmount =
+      Math.floor((prepared.amount / prepared.departments.length) * 100) / 100;
     return prepared.departments.map((departmentName, index) => ({
       departmentName,
-      amount: index === prepared.departments.length - 1
-        ? Number((prepared.amount - baseAmount * index).toFixed(2))
-        : baseAmount,
+      amount:
+        index === prepared.departments.length - 1
+          ? Number((prepared.amount - baseAmount * index).toFixed(2))
+          : baseAmount,
       ChequeNumber: null,
-      BankName: null
+      BankName: null,
     }));
   }
 
