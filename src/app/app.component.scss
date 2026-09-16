@@ -4,6 +4,10 @@ body {
   margin: 0;
 }
 
+.Logo {
+  width:150px
+}
+
 .app-shell {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
@@ -29,7 +33,7 @@ body {
   gap: 24px;
   margin-bottom: 20px;
   border-bottom: 1px solid rgba(15, 111, 75, 0.16);
-  padding: 10px 0px 0px;
+  padding: 0px 0px 0px;
 }
 
 .eyebrow {
@@ -82,7 +86,7 @@ h3 {
   border-radius: 20px;
   background: #e4f7ee;
   color: #08724d;
-  font-size: 0.78rem;
+  font-size: 1rem;
   font-weight: 800;
 }
 
@@ -232,7 +236,7 @@ h3 {
 .summary-panel,
 .content-panel {
   padding: 22px;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .summary-panel {
