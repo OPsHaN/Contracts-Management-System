@@ -1,8 +1,12 @@
 <main class="app-shell">
-  <header class="topbar">
-    <div >
+  <header class="topbar" *ngIf="session()">
+    <div>
       <!-- <h1>إدارة التعاقدات</h1> -->
-       <img src="../assets/pharmapact.png" class="Logo" title="فارما باكت - حلول ذكية لإدارة التعاقدات و مطالبات الصيدليات و الشركات" />
+      <img
+        src="../assets/pharmapact.png"
+        class="Logo"
+        title="فارما باكت - حلول ذكية لإدارة التعاقدات و مطالبات الصيدليات و الشركات"
+      />
     </div>
 
     <div class="session" *ngIf="session() as currentSession">
@@ -31,21 +35,27 @@
   <section class="login-panel" *ngIf="!session()">
     <div class="login-grid">
       <div class="login-info-side">
-        <h2>نظام فارما باكت</h2>
+        <img
+          src="../assets/pharmapact.png"
+          class="LogoLarg"
+          style="width:300px"
+          title="فارما باكت - حلول ذكية لإدارة التعاقدات و مطالبات الصيدليات و الشركات"
+        />
+
         <p>
-          منصة متكاملة لإدارة العقود بين الصيدليات والشركات، بتساعدك تتابع نسب
+          نظام متكامل لإدارة العقود بين الصيدليات والشركات، يساعدك تتابع نسب
           الخصم والضرائب والمصروفات الإدارية ومواعيد تسوية الشيكات بكل سهولة
           وشفافية.
         </p>
-        <ul class="login-features">
+        <!-- <ul class="login-features">
           <li>إدارة تعاقدات الشركات بسهولة</li>
           <li>متابعة الخصومات والضرائب أول بأول</li>
           <li>تنظيم مواعيد تسوية الشيكات</li>
-        </ul>
+        </ul> -->
       </div>
 
       <div class="login-form-side">
-        <h2>سجّل الدخول بحساب النظام</h2>
+        <!-- <h2>سجّل الدخول بحساب النظام</h2> -->
 
         <form class="form-grid" (ngSubmit)="login()">
           <label>
@@ -685,52 +695,48 @@
         </div>
 
         <div class="upload-grid">
-<label class="excel-upload">
-  <input
-    id="salesFile"
-    type="file"
-    name="salesFile"
-    accept=".xlsx,.xls"
-    (change)="onSalesFileSelected($event)"
-    hidden
-  />
+          <label class="excel-upload">
+            <input
+              id="salesFile"
+              type="file"
+              name="salesFile"
+              accept=".xlsx,.xls"
+              (change)="onSalesFileSelected($event)"
+              hidden
+            />
 
-  <label for="salesFile" class="excel-upload-content">
-<div class="excel-icon">
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
-      fill="currentColor"
-    />
-    <path
-      d="M14 2V8H20"
-      stroke="white"
-      stroke-width="1.5"
-    />
-    <path
-      d="M7 11L9 14L7 17M11 11L13 14L11 17"
-      stroke="white"
-      stroke-width="1.5"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-  </svg>
-</div>
+            <label for="salesFile" class="excel-upload-content">
+              <div class="excel-icon">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
+                    fill="currentColor"
+                  />
+                  <path d="M14 2V8H20" stroke="white" stroke-width="1.5" />
+                  <path
+                    d="M7 11L9 14L7 17M11 11L13 14L11 17"
+                    stroke="white"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
 
-    <div class="excel-text">
-      <strong>اختر ملف Excel</strong>
-      <span>اضغط هنا لاختيار ملف .xlsx أو .xls</span>
-    </div>
+              <div class="excel-text">
+                <strong>اختر ملف Excel</strong>
+                <span>اضغط هنا لاختيار ملف .xlsx أو .xls</span>
+              </div>
 
-    <i class="pi pi-upload upload-arrow"></i>
-  </label>
-</label>
+              <i class="pi pi-upload upload-arrow"></i>
+            </label>
+          </label>
 
           <div class="upload-actions">
             <button
@@ -971,7 +977,8 @@
           </div>
 
           <div class="empty-state" *ngIf="!pivotData() && !pivotLoading()">
-           لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض الجداول أو إرفع ملف جديد
+            لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض
+            الجداول أو إرفع ملف جديد
           </div>
         </ng-container>
 
@@ -1167,7 +1174,8 @@
         </div>
 
         <div class="empty-state" *ngIf="!claimsLoading() && !claims().length">
-           لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض الجداول أو إرفع ملف جديد
+          لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض
+          الجداول أو إرفع ملف جديد
         </div>
 
         <div
@@ -1435,8 +1443,9 @@
             </div>
           </section>
 
-                    <div class="empty-state" *ngIf="!pivotData() && !pivotLoading()">
-           لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض الجداول أو إرفع ملف جديد
+          <div class="empty-state" *ngIf="!claimsLoading() && !claims().length">
+            لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض
+            الجداول أو إرفع ملف جديد
           </div>
         </div>
 
@@ -1631,7 +1640,7 @@
         © {{ currentYear() }}
       </p>
       <p class="mt-8 text-center text-sm font-medium text-slate-400">
-        Software Version 2.5.5
+        Software Version 2.5.8
       </p>
     </div>
   </footer>
