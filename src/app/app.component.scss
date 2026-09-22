@@ -5,7 +5,7 @@ body {
 }
 
 .Logo {
-  width:150px
+  width: 150px;
 }
 
 .app-shell {
@@ -38,14 +38,14 @@ body {
 
 .eyebrow {
   margin: 0 0 6px;
-  color: #0f7a55;
+  color: #b91c1c;
   font-size: 1rem;
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
 
   a {
-    color: #ffb300;
+    color: #000000;
     text-decoration: none;
   }
 }
@@ -569,6 +569,7 @@ button:disabled {
   gap: 8px;
   flex-wrap: nowrap;
   white-space: nowrap;
+  flex-direction: column;
 }
 
 .claim-actions .text-button {
@@ -1269,7 +1270,6 @@ dd {
   border-color: rgba(127, 29, 29, 0.2);
 }
 
-.eyebrow,
 .session span,
 .notice,
 .notice-close,
@@ -1277,10 +1277,6 @@ dd {
 .insights-grid strong,
 .pivot-table .total-cell {
   color: #991b1b;
-}
-
-.eyebrow a {
-  color: #b91c1c;
 }
 
 .session span {
@@ -1563,9 +1559,6 @@ tbody tr:hover {
   color: #b91c1c;
 }
 
-
-
-
 /* =========================================================
    PHARMA PACK
    MODERN BRIGHT LOGIN
@@ -1593,12 +1586,7 @@ tbody tr:hover {
   display: block;
   height: 5px;
 
-  background: linear-gradient(
-    90deg,
-    #dc2626 0%,
-    #ef4444 45%,
-    #f97316 100%
-  );
+  background: linear-gradient(90deg, #dc2626 0%, #ef4444 45%, #f97316 100%);
 }
 
 /* إلغاء تقسيم الصفحة */
@@ -1820,8 +1808,7 @@ tbody tr:hover {
 
   border-color: #ef4444;
 
-  box-shadow:
-    0 0 0 4px rgba(239, 68, 68, 0.09);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.09);
 }
 
 /* =========================================================
@@ -1884,8 +1871,7 @@ tbody tr:hover {
 
   cursor: pointer;
 
-  box-shadow:
-    0 7px 18px rgba(220, 38, 38, 0.18);
+  box-shadow: 0 7px 18px rgba(220, 38, 38, 0.18);
 
   transition:
     background 0.2s ease,
@@ -1898,8 +1884,7 @@ tbody tr:hover {
 
   transform: translateY(-1px);
 
-  box-shadow:
-    0 10px 22px rgba(220, 38, 38, 0.23);
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.23);
 }
 
 .login-form-side button[type="submit"]:active {
@@ -1918,7 +1903,6 @@ tbody tr:hover {
    ========================================================= */
 
 @media (max-width: 600px) {
-
   .login-panel {
     width: calc(100% - 22px);
 
@@ -1955,4 +1939,3 @@ tbody tr:hover {
     font-size: 16px;
   }
 }
-

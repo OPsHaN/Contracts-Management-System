@@ -136,13 +136,30 @@ export interface CompanyInsightsResponse {
   amountAfterDiscount: number;
 }
 
+/**
+ * A generated claim.
+ *
+ * - `claimAmount` / `prescriptionsCount` are the originally generated values,
+ *   before any contract discount / reviewer correction, and are never
+ *   overwritten once a review is saved.
+ * - `claimAmountAfterDiscount` is the calculated amount after contract
+ *   discounts are applied.
+ * - `correctedAmount` / `correctedPrescriptionsCount` are the reviewer's
+ *   final figures, set once the claim has been reviewed. Use
+ *   `correctedAmount ?? claimAmountAfterDiscount` and
+ *   `correctedPrescriptionsCount ?? prescriptionsCount` to get the
+ *   "effective" values to act on (e.g. cheque preparation).
+ */
 export interface ClaimDto {
   id: string;
   companyName: string;
   month: number;
   year: number;
+  claimAmount: number;
   claimAmountAfterDiscount: number;
+  prescriptionsCount: number;
   correctedAmount: number | null;
+  correctedPrescriptionsCount: number | null;
   notes: string | null;
   discrepancyType: string | null;
   status: string;
@@ -154,11 +171,18 @@ export interface GenerateClaimsRequest {
   year: number;
 }
 
+/**
+ * When `isAccurate` is `true`, `correctedAmount`, `correctedPrescriptionsCount`
+ * and `discrepancyType` must be sent as `null` (the generated values are
+ * approved as-is). When `isAccurate` is `false`, all three are required:
+ * `correctedPrescriptionsCount` must additionally be a whole number >= 0.
+ */
 export interface ClaimReviewRequest {
   isAccurate: boolean;
-  correctedAmount: number;
-  discrepancyType: string;
-  notes: string;
+  correctedAmount: number | null;
+  correctedPrescriptionsCount: number | null;
+  discrepancyType: string | null;
+  notes: string | null;
 }
 
 export interface ClaimReviewResponse extends ClaimReviewRequest {

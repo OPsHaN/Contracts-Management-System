@@ -1081,8 +1081,11 @@
                 <th>الشركة</th>
                 <th>الشهر</th>
                 <th>السنة</th>
+                <th>المبلغ قبل الخصم</th>
                 <th>المبلغ بعد الخصم</th>
+                <th>عدد الروشتات الأصلي</th>
                 <th>المبلغ المصحح</th>
+                <th>عدد الروشتات المصحح</th>
                 <th>سبب الاختلاف</th>
                 <th class="notes-column">الملاحظات</th>
                 <th>الحالة</th>
@@ -1094,7 +1097,9 @@
                 <td>{{ claim.companyName }}</td>
                 <td>{{ claim.month }}</td>
                 <td>{{ claim.year }}</td>
+                <td>{{ formatMoney(claim.claimAmount) }}</td>
                 <td>{{ formatMoney(claim.claimAmountAfterDiscount) }}</td>
+                <td>{{ claim.prescriptionsCount }}</td>
                 <td>
                   {{
                     claim.correctedAmount === null
@@ -1103,19 +1108,13 @@
                   }}
                 </td>
                 <td>
-                  <ng-container [ngSwitch]="claim.discrepancyType">
-                    <span *ngSwitchCase="'Other'">أخرى</span>
-                    <span *ngSwitchCase="'ContractualDeduction'"
-                      >خصم تعاقدات</span
-                    >
-                    <span *ngSwitchCase="'DeferredToNextMonth'"
-                      >مؤجل لشهر قادم</span
-                    >
-                    <span *ngSwitchCase="'AccountingDeficit'">عجز محاسبي</span>
-                    <span *ngSwitchCase="'None'">لايوجد</span>
-                    <span *ngSwitchDefault>-</span>
-                  </ng-container>
+                  {{
+                    claim.correctedPrescriptionsCount === null
+                      ? "-"
+                      : claim.correctedPrescriptionsCount
+                  }}
                 </td>
+                <td>{{ displayDiscrepancyType(claim.discrepancyType) }}</td>
                 <td class="notes-column">{{ claim.notes || "-" }}</td>
                 <td>{{ claim.status }}</td>
                 <td>
@@ -1202,10 +1201,18 @@
             </div>
             <div class="batch-progress review-summary">
               <div>
+                <span>المبلغ قبل الخصم</span>
+                <strong>{{ formatMoney(claim.claimAmount) }}</strong>
+              </div>
+              <div>
                 <span>المبلغ بعد الخصم</span>
                 <strong>{{
                   formatMoney(claim.claimAmountAfterDiscount)
                 }}</strong>
+              </div>
+              <div>
+                <span>عدد الروشتات الأصلي</span>
+                <strong>{{ claim.prescriptionsCount }}</strong>
               </div>
               <div>
                 <span>الحالة</span>
@@ -1221,30 +1228,49 @@
                 <input
                   type="checkbox"
                   name="reviewerIsAccurate"
-                  [(ngModel)]="reviewForm.isAccurate"
+                  [ngModel]="reviewForm.isAccurate"
+                  (ngModelChange)="onReviewAccuracyChange($event)"
                 />
                 المطالبة صحيحة
               </label>
-              <label>
-                المبلغ المصحح
-                <input
-                  type="number"
-                  name="reviewerCorrectedAmount"
-                  [(ngModel)]="reviewForm.correctedAmount"
-                />
-              </label>
-              <label>
-                نوع الاختلاف
-                <select
-                  name="reviewerDiscrepancyType"
-                  [(ngModel)]="reviewForm.discrepancyType"
-                >
-                  <option value="ContractualDeduction">خصم تعاقدات</option>
-                  <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
-                  <option value="AccountingDeficit">خطأ محاسبي</option>
-                  <option value="Other">اخرى</option>
-                </select>
-              </label>
+
+              <ng-container *ngIf="!reviewForm.isAccurate">
+                <label>
+                  المبلغ المصحح
+                  <input
+                    type="number"
+                    name="reviewerCorrectedAmount"
+                    [(ngModel)]="reviewForm.correctedAmount"
+                    required
+                  />
+                </label>
+                <label>
+                  عدد الروشتات المصحح
+                  <input
+                    type="number"
+                    name="reviewerCorrectedPrescriptionsCount"
+                    [(ngModel)]="reviewForm.correctedPrescriptionsCount"
+                    min="0"
+                    step="1"
+                    required
+                  />
+                </label>
+                <label>
+                  نوع الاختلاف
+                  <select
+                    name="reviewerDiscrepancyType"
+                    [(ngModel)]="reviewForm.discrepancyType"
+                    required
+                  >
+                    <option [ngValue]="null" disabled>اختار نوع الاختلاف</option>
+                    <option value="ContractualDeduction">خصم تعاقدات</option>
+                    <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
+                    <option value="AccountingDeficit">خطأ محاسبي</option>
+                    <option value="Other">اخرى</option>
+                  </select>
+                </label>
+              </ng-container>
+
               <label>
                 ملاحظات
                 <textarea
@@ -1252,6 +1278,11 @@
                   [(ngModel)]="reviewForm.notes"
                 ></textarea>
               </label>
+
+              <div class="form-error" *ngIf="reviewFormError()">
+                {{ reviewFormError() }}
+              </div>
+
               <button type="submit" [disabled]="loading()">حفظ المراجعة</button>
             </form>
             <div
@@ -1259,6 +1290,16 @@
               *ngIf="claim.status === 'Reviewed' && !editingClaimReview()"
             >
               تمت مراجعة المطالبة، ولا يمكن تعديلها مرة أخرى.
+              <ng-container *ngIf="selectedClaimReview() as review">
+                <ng-container *ngIf="review.isAccurate; else claimsInaccurateSummary">
+                  تم اعتماد القيم المُولّدة كما هي.
+                </ng-container>
+                <ng-template #claimsInaccurateSummary>
+                  المبلغ المصحح: {{ formatMoney(review.correctedAmount || 0) }}
+                  — عدد الروشتات المصحح:
+                  {{ review.correctedPrescriptionsCount ?? "-" }}
+                </ng-template>
+              </ng-container>
             </div>
           </section>
         </div>
@@ -1303,10 +1344,18 @@
             <h3>{{ claim.companyName }}</h3>
             <div class="batch-progress review-summary">
               <div>
+                <span>المبلغ قبل الخصم</span>
+                <strong>{{ formatMoney(claim.claimAmount) }}</strong>
+              </div>
+              <div>
                 <span>المبلغ بعد الخصم</span
                 ><strong>{{
                   formatMoney(claim.claimAmountAfterDiscount)
                 }}</strong>
+              </div>
+              <div>
+                <span>عدد الروشتات الأصلي</span>
+                <strong>{{ claim.prescriptionsCount }}</strong>
               </div>
               <div>
                 <span>الحالة</span><strong>{{ claim.status }}</strong>
@@ -1317,30 +1366,49 @@
                 <input
                   type="checkbox"
                   name="isAccurate"
-                  [(ngModel)]="reviewForm.isAccurate"
+                  [ngModel]="reviewForm.isAccurate"
+                  (ngModelChange)="onReviewAccuracyChange($event)"
                 />
                 المطالبة صحيحة
               </label>
-              <label>
-                المبلغ المصحح
-                <input
-                  type="number"
-                  name="correctedAmount"
-                  [(ngModel)]="reviewForm.correctedAmount"
-                />
-              </label>
-              <label>
-                نوع الاختلاف
-                <select
-                  name="discrepancyType"
-                  [(ngModel)]="reviewForm.discrepancyType"
-                >
-                  <option value="ContractualDeduction">خصم تعاقدات</option>
-                  <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
-                  <option value="AccountingDeficit">خطأ محاسبي</option>
-                  <option value="Other">اخرى</option>
-                </select>
-              </label>
+
+              <ng-container *ngIf="!reviewForm.isAccurate">
+                <label>
+                  المبلغ المصحح
+                  <input
+                    type="number"
+                    name="correctedAmount"
+                    [(ngModel)]="reviewForm.correctedAmount"
+                    required
+                  />
+                </label>
+                <label>
+                  عدد الروشتات المصحح
+                  <input
+                    type="number"
+                    name="correctedPrescriptionsCount"
+                    [(ngModel)]="reviewForm.correctedPrescriptionsCount"
+                    min="0"
+                    step="1"
+                    required
+                  />
+                </label>
+                <label>
+                  نوع الاختلاف
+                  <select
+                    name="discrepancyType"
+                    [(ngModel)]="reviewForm.discrepancyType"
+                    required
+                  >
+                    <option [ngValue]="null" disabled>اختار نوع الاختلاف</option>
+                    <option value="ContractualDeduction">خصم تعاقدات</option>
+                    <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
+                    <option value="AccountingDeficit">خطأ محاسبي</option>
+                    <option value="Other">اخرى</option>
+                  </select>
+                </label>
+              </ng-container>
+
               <label>
                 ملاحظات
                 <textarea
@@ -1348,10 +1416,25 @@
                   [(ngModel)]="reviewForm.notes"
                 ></textarea>
               </label>
+
+              <div class="form-error" *ngIf="reviewFormError()">
+                {{ reviewFormError() }}
+              </div>
+
               <button type="submit" [disabled]="loading()">حفظ المراجعة</button>
             </form>
             <div class="saved-review" *ngIf="selectedClaimReview() as review">
-              آخر مراجعة: {{ review.notes || "بدون ملاحظات" }}
+              <ng-container *ngIf="review.isAccurate; else reviewInaccurateSummary">
+                آخر مراجعة: تم اعتماد القيم المُولّدة كما هي.
+              </ng-container>
+              <ng-template #reviewInaccurateSummary>
+                آخر مراجعة — المبلغ المصحح:
+                {{ formatMoney(review.correctedAmount || 0) }}، عدد الروشتات
+                المصحح: {{ review.correctedPrescriptionsCount ?? "-" }}
+                <ng-container *ngIf="review.notes">
+                  ({{ review.notes }})
+                </ng-container>
+              </ng-template>
             </div>
           </section>
 

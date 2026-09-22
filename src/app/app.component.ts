@@ -98,6 +98,7 @@ export class AppComponent {
   readonly showLoginPassword = signal(false);
   readonly showUserPassword = signal(false);
   readonly editingClaimReview = signal(false);
+  readonly reviewFormError = signal("");
   readonly displayedCheques = computed(() => {
     const uniqueCheques = new Map<string, ChequeDto>();
 
@@ -213,12 +214,7 @@ export class AppComponent {
     companyName: "",
   };
 
-  reviewForm: ClaimReviewRequest = {
-    isAccurate: false,
-    correctedAmount: 0,
-    discrepancyType: "Other",
-    notes: "",
-  };
+  reviewForm: ClaimReviewRequest = this.emptyReviewForm();
 
   chequeForm = {
     startDate: new Date().toISOString().slice(0, 10),
@@ -281,6 +277,7 @@ export class AppComponent {
   closeClaimDetails(): void {
     this.selectedClaim.set(null);
     this.editingClaimReview.set(false);
+    this.reviewFormError.set("");
   }
 
   closeCompanyForm(): void {
@@ -622,11 +619,15 @@ export class AppComponent {
     );
     this.selectedClaim.set(pendingClaim);
     this.claimsFilter.companyName = pendingClaim.companyName;
+    this.reviewFormError.set("");
     this.reviewForm = {
       isAccurate: false,
       correctedAmount:
         pendingClaim.correctedAmount ?? pendingClaim.claimAmountAfterDiscount,
-      discrepancyType: "Other",
+      correctedPrescriptionsCount:
+        pendingClaim.correctedPrescriptionsCount ??
+        pendingClaim.prescriptionsCount,
+      discrepancyType: null,
       notes: "",
     };
 
@@ -645,6 +646,23 @@ export class AppComponent {
     this.loadClaimReview(pendingClaim.id);
   }
 
+  /**
+   * Called from the "isAccurate" checkbox so the corrected fields are reset
+   * as soon as the reviewer marks a claim accurate (they will be sent as
+   * null regardless, but clearing them keeps the form consistent if the
+   * reviewer toggles the checkbox back and forth).
+   */
+  onReviewAccuracyChange(isAccurate: boolean): void {
+    this.reviewForm.isAccurate = isAccurate;
+    this.reviewFormError.set("");
+
+    if (isAccurate) {
+      this.reviewForm.correctedAmount = null;
+      this.reviewForm.correctedPrescriptionsCount = null;
+      this.reviewForm.discrepancyType = null;
+    }
+  }
+
   saveClaimReview(): void {
     const claim = this.selectedClaim();
 
@@ -653,10 +671,16 @@ export class AppComponent {
       return;
     }
 
-    const reviewPayload: ClaimReviewRequest = {
-      ...this.reviewForm,
-      isAccurate: this.reviewForm.isAccurate === true,
-    };
+    const validationError = this.validateReviewForm();
+
+    if (validationError) {
+      this.reviewFormError.set(validationError);
+      return;
+    }
+
+    this.reviewFormError.set("");
+
+    const reviewPayload = this.buildReviewPayload();
 
     const request$ = this.editingClaimReview()
       ? this.salesClaimsService.updateClaimReview(claim.id, reviewPayload)
@@ -668,6 +692,10 @@ export class AppComponent {
         const reviewedClaim: ClaimDto = {
           ...(this.selectedClaim() ?? claim),
           status: "Reviewed",
+          correctedAmount: review.correctedAmount,
+          correctedPrescriptionsCount: review.correctedPrescriptionsCount,
+          discrepancyType: review.discrepancyType,
+          notes: review.notes,
         };
         this.selectedClaim.set(reviewedClaim);
         this.claims.update((claims) =>
@@ -688,10 +716,13 @@ export class AppComponent {
   editClaimReview(claim: ClaimDto): void {
     this.selectedClaim.set(claim);
     this.editingClaimReview.set(true);
+    this.reviewFormError.set("");
     this.reviewForm = {
       isAccurate: false,
       correctedAmount: claim.correctedAmount ?? claim.claimAmountAfterDiscount,
-      discrepancyType: "Other",
+      correctedPrescriptionsCount:
+        claim.correctedPrescriptionsCount ?? claim.prescriptionsCount,
+      discrepancyType: null,
       notes: "",
     };
     this.loadClaimReview(claim.id);
@@ -708,12 +739,30 @@ export class AppComponent {
         this.reviewForm = {
           isAccurate: review.isAccurate,
           correctedAmount: review.correctedAmount,
+          correctedPrescriptionsCount: review.correctedPrescriptionsCount,
           discrepancyType: review.discrepancyType,
           notes: review.notes,
         };
       },
       error: () => this.selectedClaimReview.set(null),
     });
+  }
+
+  /**
+   * The amount to act on (e.g. for cheque preparation): the reviewer's
+   * corrected amount when available, otherwise the generated
+   * claimAmountAfterDiscount. The original values are never overwritten.
+   */
+  effectiveClaimAmount(claim: ClaimDto): number {
+    return claim.correctedAmount ?? claim.claimAmountAfterDiscount;
+  }
+
+  /**
+   * The prescriptions count to act on: the reviewer's corrected count when
+   * available, otherwise the originally generated prescriptionsCount.
+   */
+  effectivePrescriptionsCount(claim: ClaimDto): number {
+    return claim.correctedPrescriptionsCount ?? claim.prescriptionsCount;
   }
 
   prepareCheque(claim?: ClaimDto): void {
@@ -1068,6 +1117,70 @@ export class AppComponent {
     };
   }
 
+  private emptyReviewForm(): ClaimReviewRequest {
+    return {
+      isAccurate: false,
+      correctedAmount: null,
+      correctedPrescriptionsCount: null,
+      discrepancyType: null,
+      notes: "",
+    };
+  }
+
+  /**
+   * Builds the payload actually sent to the API: when the claim is marked
+   * accurate, both corrected values and the discrepancy type are forced to
+   * null regardless of whatever is left in the form fields.
+   */
+  private buildReviewPayload(): ClaimReviewRequest {
+    const isAccurate = this.reviewForm.isAccurate === true;
+
+    return {
+      isAccurate,
+      correctedAmount: isAccurate ? null : this.reviewForm.correctedAmount,
+      correctedPrescriptionsCount: isAccurate
+        ? null
+        : this.reviewForm.correctedPrescriptionsCount,
+      discrepancyType: isAccurate ? null : this.reviewForm.discrepancyType,
+      notes: this.reviewForm.notes,
+    };
+  }
+
+  /**
+   * Client-side validation mirroring the API rules, so obviously invalid
+   * submissions are caught before the request is sent. Server-side
+   * validation errors (returned in error.error.errors) are still surfaced
+   * via showError().
+   */
+  private validateReviewForm(): string | null {
+    if (this.reviewForm.isAccurate === true) {
+      return null;
+    }
+
+    if (
+      this.reviewForm.correctedAmount === null ||
+      this.reviewForm.correctedAmount === undefined
+    ) {
+      return "اكتب المبلغ المصحح.";
+    }
+
+    const correctedCount = this.reviewForm.correctedPrescriptionsCount;
+
+    if (correctedCount === null || correctedCount === undefined) {
+      return "اكتب عدد الروشتات المصحح.";
+    }
+
+    if (!Number.isInteger(correctedCount) || correctedCount < 0) {
+      return "عدد الروشتات المصحح يجب أن يكون رقمًا صحيحًا أكبر من أو يساوي صفر.";
+    }
+
+    if (!this.reviewForm.discrepancyType) {
+      return "اختار نوع الاختلاف.";
+    }
+
+    return null;
+  }
+
   currentYear(): number {
     return new Date().getFullYear();
   }
@@ -1105,6 +1218,22 @@ export class AppComponent {
     return labels[status] ?? status;
   }
 
+  displayDiscrepancyType(discrepancyType: string | null): string {
+    const labels: Record<string, string> = {
+      Other: "أخرى",
+      ContractualDeduction: "خصم تعاقدات",
+      DeferredToNextMonth: "مؤجل لشهر قادم",
+      AccountingDeficit: "عجز محاسبي",
+      None: "لايوجد",
+    };
+
+    if (!discrepancyType) {
+      return "-";
+    }
+
+    return labels[discrepancyType] ?? discrepancyType;
+  }
+
   formatMoney(value: number): string {
     const formattedValue = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 0,
@@ -1129,6 +1258,7 @@ export class AppComponent {
     this.appliedCompanyName.set("");
     this.batchPolling.set(false);
     this.uploadProgress.set(0);
+    this.reviewFormError.set("");
   }
 
   private filterClaimsByCompany(claims: ClaimDto[]): ClaimDto[] {
