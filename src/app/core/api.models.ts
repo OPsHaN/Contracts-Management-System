@@ -136,6 +136,17 @@ export interface CompanyInsightsResponse {
   amountAfterDiscount: number;
 }
 
+export interface CompanyProfileRow {
+  saleDate: string;
+  importedItemsTotal: number;
+  localItemsTotal: number;
+  grossTotal: number;
+  discountOnTotal: number;
+  discountOnItems: number;
+  subTotal: number;
+  remainingAmount: number;
+}
+
 /**
  * A generated claim.
  *
@@ -198,6 +209,12 @@ export interface ChequePrepareResponse {
   claimId: string;
   companyName: string;
   amount: number;
+  amountBeforeDiscount: number;
+  amountAfterDiscount: number;
+  discountDifference: number;
+  taxPercentage: number;
+  administrativeExpensesPercentage: number;
+  finalAmount: number;
   settlementDays: number;
   departments: string[];
 }
@@ -205,8 +222,8 @@ export interface ChequePrepareResponse {
 export interface ChequeAllocation {
   departmentName: string | null;
   amount: number;
-  ChequeNumber: string | null;
-  BankName: string | null;
+  chequeNumber: string | null;
+  bankName: string | null;
 }
 
 export interface CreateChequesRequest {
@@ -214,13 +231,24 @@ export interface CreateChequesRequest {
   allocations: ChequeAllocation[];
 }
 
+export type PaymentDifferenceType = 'Increase' | 'Decrease' | 'Equal';
+
 export interface ChequeDto {
   id: string;
   companyName: string;
-  chequeNumber: string;
-  bankName: string;
+  chequeNumber: string | null;
+  bankName: string | null;
   departmentName: string | null;
   amount: number;
+  amountBeforeDiscount: number;
+  amountAfterDiscount: number;
+  discountDifference: number;
+  taxPercentage: number;
+  administrativeExpensesPercentage: number;
+  finalAmount: number;
+  paidAmount: number;
+  paymentDifference: number;
+  paymentDifferenceType: PaymentDifferenceType;
   startDate: string;
   endDate: string;
   status: string;
@@ -232,3 +260,50 @@ export interface UpdateChequeStatusRequest {
   status: 'Pending' | 'PaidInFull' | 'PartiallyPaid';
   remainingAmount?: number | null;
 }
+
+export type DifferenceType = 'Increase' | 'Decrease' | 'NoDifference';
+
+export type DifferenceReason =
+  | 'ContractualDeduction'
+  | 'DeferredToNextMonth'
+  | 'AccountingDeficit'
+  | 'Other';
+
+export interface ClaimDifferenceItem {
+  id: string;
+  value: number;
+  reason: DifferenceReason;
+  reviewId: string;
+  pharmacyId: string;
+}
+
+export interface ClaimDifferencesResponse {
+  claimId: string;
+  reviewId: string;
+  differenceAmount: number;
+  differenceType: DifferenceType;
+  differences: ClaimDifferenceItem[];
+}
+
+export interface CompanyBalance {
+  companyName: string;
+  totalClaimed: number;
+  totalCollected: number;
+  balance: number;
+}
+
+export interface TotalBalance {
+  totalClaimed: number;
+  totalCollected: number;
+  balance: number;
+}
+
+export interface AgingReport {
+  notYetDue: number;
+  overdue0To30: number;
+  overdue31To60: number;
+  overdue60Plus: number;
+  totalOutstanding: number;
+}
+
+export interface UpcomingDueCheque extends ChequeDto {}

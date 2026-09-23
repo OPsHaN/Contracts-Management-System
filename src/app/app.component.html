@@ -38,7 +38,7 @@
         <img
           src="../assets/pharmapact.png"
           class="LogoLarg"
-          style="width:300px"
+          style="width: 300px"
           title="فارما باكت - حلول ذكية لإدارة التعاقدات و مطالبات الصيدليات و الشركات"
         />
 
@@ -1011,6 +1011,134 @@
               <strong>{{ formatMoney(insights.amountAfterDiscount) }}</strong>
             </article>
           </div>
+
+          <section class="mini-panel company-profile-panel">
+            <div class="step-heading">
+              <div>
+                <p class="eyebrow">ملف الشركة</p>
+                <h3>{{ appliedCompanyName() }}</h3>
+              </div>
+            </div>
+
+            <form
+              class="company-filter-bar"
+              (ngSubmit)="loadCompanyProfile(1)"
+            >
+              <label>
+                الشهر
+                <input
+                  type="number"
+                  name="companyProfileMonth"
+                  min="1"
+                  max="12"
+                  [(ngModel)]="companyProfileFilter.month"
+                  placeholder="اختياري"
+                />
+              </label>
+              <label>
+                السنة
+                <input
+                  type="number"
+                  name="companyProfileYear"
+                  min="2020"
+                  [(ngModel)]="companyProfileFilter.year"
+                  placeholder="اختياري"
+                />
+              </label>
+              <label>
+                عدد الصفوف
+                <select
+                  name="companyProfilePageSize"
+                  [(ngModel)]="companyProfileFilter.pageSize"
+                >
+                  <option [ngValue]="10">10</option>
+                  <option [ngValue]="20">20</option>
+                  <option [ngValue]="50">50</option>
+                </select>
+              </label>
+              <button type="submit" [disabled]="companyProfileLoading()">
+                {{
+                  companyProfileLoading()
+                    ? "جاري التحميل..."
+                    : "تحديث ملف الشركة"
+                }}
+              </button>
+            </form>
+
+            <div class="form-error" *ngIf="companyProfileError()">
+              {{ companyProfileError() }}
+            </div>
+
+            <div
+              class="empty-state"
+              *ngIf="
+                !companyProfileLoading() &&
+                !companyProfileError() &&
+                companyProfile()?.items?.length === 0
+              "
+            >
+              لا توجد بيانات لملف الشركة بهذه الفلاتر.
+            </div>
+
+            <div
+              class="table-wrap"
+              *ngIf="!companyProfileLoading() && companyProfile() as profile"
+            >
+              <table *ngIf="profile.items.length">
+                <thead>
+                  <tr>
+                    <th>تاريخ البيع</th>
+                    <th>مستورد</th>
+                    <th>محلي</th>
+                    <th>الإجمالي</th>
+                    <th>خصم الإجمالي</th>
+                    <th>خصم الأصناف</th>
+                    <th>الصافي</th>
+                    <th>المتبقي</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of profile.items">
+                    <td>{{ row.saleDate | date: "mediumDate" }}</td>
+                    <td>{{ formatMoney(row.importedItemsTotal) }}</td>
+                    <td>{{ formatMoney(row.localItemsTotal) }}</td>
+                    <td>{{ formatMoney(row.grossTotal) }}</td>
+                    <td>{{ formatMoney(row.discountOnTotal) }}</td>
+                    <td>{{ formatMoney(row.discountOnItems) }}</td>
+                    <td>{{ formatMoney(row.subTotal) }}</td>
+                    <td>{{ formatMoney(row.remainingAmount) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="pagination" *ngIf="companyProfile() as profile">
+              <button
+                type="button"
+                class="ghost-button"
+                [disabled]="
+                  !profileHasPreviousPage(profile) || companyProfileLoading()
+                "
+                (click)="changeCompanyProfilePage(profile.pageNumber - 1)"
+              >
+                السابق
+              </button>
+              <span>
+                صفحة {{ profile.pageNumber }} من {{ profileTotalPages(profile) }}
+                - الإجمالي {{ profile.totalCount }}
+              </span>
+              <button
+                type="button"
+                class="ghost-button"
+                [disabled]="
+                  !profileHasNextPage(profile) || companyProfileLoading()
+                "
+                (click)="changeCompanyProfilePage(profile.pageNumber + 1)"
+              >
+                التالي
+              </button>
+            </div>
+          </section>
         </ng-template>
 
         <div class="step-actions">
@@ -1154,6 +1282,24 @@
                     </button>
 
                     <button
+                      *ngIf="isPharmacy() && claim.status === 'Reviewed'"
+                      type="button"
+                      class="text-button"
+                      [disabled]="
+                        claimDifferencesLoading() &&
+                        claimDifferencesClaimId() === claim.id
+                      "
+                      (click)="viewClaimDifferences(claim)"
+                    >
+                      {{
+                        claimDifferencesLoading() &&
+                        claimDifferencesClaimId() === claim.id
+                          ? "جاري التحميل..."
+                          : "عرض الفروق"
+                      }}
+                    </button>
+
+                    <button
                       *ngIf="
                         isPharmacy() &&
                         claim.status === 'Reviewed' &&
@@ -1175,6 +1321,101 @@
         <div class="empty-state" *ngIf="!claimsLoading() && !claims().length">
           لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض
           الجداول أو إرفع ملف جديد
+        </div>
+
+        <!--
+          Difference-details modal for a reviewed claim. This lives here,
+          inside the "claims" step, because that's where the trigger button
+          ("عرض الفروق") is rendered. An *ngIf-guarded section is removed
+          entirely from the DOM when its condition is false, so a modal
+          placed in a different, currently-hidden step (e.g. "companies")
+          will never appear no matter what showDifferencesModal() returns.
+        -->
+        <div class="claim-review-modal" *ngIf="showDifferencesModal()">
+          <section class="mini-panel differences-modal">
+            <div class="modal-heading">
+              <div>
+                <p class="eyebrow">تفاصيل الفروق</p>
+                <h3>مراجعة المطالبة</h3>
+              </div>
+              <button
+                type="button"
+                class="modal-close"
+                aria-label="إغلاق تفاصيل الفروق"
+                (click)="closeDifferencesModal()"
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              class="processing-card upload-status"
+              *ngIf="claimDifferencesLoading()"
+            >
+              <div class="processing-title">
+                <span class="spinner"></span>
+                <strong>جاري تحميل تفاصيل الفروق</strong>
+              </div>
+            </div>
+
+            <div
+              class="empty-state"
+              *ngIf="!claimDifferencesLoading() && claimDifferencesError()"
+            >
+              {{ claimDifferencesError() }}
+            </div>
+
+            <ng-container
+              *ngIf="
+                !claimDifferencesLoading() &&
+                !claimDifferencesError() &&
+                claimDifferences() as data
+              "
+            >
+              <div class="batch-progress review-summary">
+                <div>
+                  <span>مبلغ الفرق</span>
+                  <strong>{{ formatMoney(data.differenceAmount) }}</strong>
+                </div>
+                <div>
+                  <span>اتجاه الفرق</span>
+                  <strong>{{ displayDifferenceType(data.differenceType) }}</strong>
+                </div>
+              </div>
+
+              <div
+                class="table-wrap"
+                *ngIf="data.differences.length; else noDifferencesRows"
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      <th>السبب</th>
+                      <th>القيمة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of data.differences">
+                      <td>{{ displayDifferenceReason(item.reason) }}</td>
+                      <td>{{ formatMoney(item.value) }}</td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>الإجمالي</td>
+                      <td>{{ formatMoney(claimDifferencesTotal()) }}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <ng-template #noDifferencesRows>
+                <div class="empty-state">
+                  لا توجد فروق مسجلة لهذه المطالبة.
+                </div>
+              </ng-template>
+            </ng-container>
+          </section>
         </div>
 
         <div
@@ -1262,7 +1503,9 @@
                     [(ngModel)]="reviewForm.discrepancyType"
                     required
                   >
-                    <option [ngValue]="null" disabled>اختار نوع الاختلاف</option>
+                    <option [ngValue]="null" disabled>
+                      اختار نوع الاختلاف
+                    </option>
                     <option value="ContractualDeduction">خصم تعاقدات</option>
                     <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
                     <option value="AccountingDeficit">خطأ محاسبي</option>
@@ -1291,7 +1534,9 @@
             >
               تمت مراجعة المطالبة، ولا يمكن تعديلها مرة أخرى.
               <ng-container *ngIf="selectedClaimReview() as review">
-                <ng-container *ngIf="review.isAccurate; else claimsInaccurateSummary">
+                <ng-container
+                  *ngIf="review.isAccurate; else claimsInaccurateSummary"
+                >
                   تم اعتماد القيم المُولّدة كما هي.
                 </ng-container>
                 <ng-template #claimsInaccurateSummary>
@@ -1400,7 +1645,9 @@
                     [(ngModel)]="reviewForm.discrepancyType"
                     required
                   >
-                    <option [ngValue]="null" disabled>اختار نوع الاختلاف</option>
+                    <option [ngValue]="null" disabled>
+                      اختار نوع الاختلاف
+                    </option>
                     <option value="ContractualDeduction">خصم تعاقدات</option>
                     <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
                     <option value="AccountingDeficit">خطأ محاسبي</option>
@@ -1424,7 +1671,9 @@
               <button type="submit" [disabled]="loading()">حفظ المراجعة</button>
             </form>
             <div class="saved-review" *ngIf="selectedClaimReview() as review">
-              <ng-container *ngIf="review.isAccurate; else reviewInaccurateSummary">
+              <ng-container
+                *ngIf="review.isAccurate; else reviewInaccurateSummary"
+              >
                 آخر مراجعة: تم اعتماد القيم المُولّدة كما هي.
               </ng-container>
               <ng-template #reviewInaccurateSummary>
@@ -1487,6 +1736,34 @@
                 <span>مبلغ الشيك</span>
                 <strong>{{ formatMoney(prepared.amount) }}</strong>
               </div>
+              <div class="financial-summary-grid">
+                <div class="cheque-field">
+                  <span>المبلغ قبل الخصم</span>
+                  <strong>{{ formatMoney(prepared.amountBeforeDiscount) }}</strong>
+                </div>
+                <div class="cheque-field">
+                  <span>المبلغ بعد الخصم</span>
+                  <strong>{{ formatMoney(prepared.amountAfterDiscount) }}</strong>
+                </div>
+                <div class="cheque-field">
+                  <span>فرق الخصم</span>
+                  <strong>{{ formatMoney(prepared.discountDifference) }}</strong>
+                </div>
+                <div class="cheque-field">
+                  <span>نسبة الضريبة</span>
+                  <strong>{{ formatPercent(prepared.taxPercentage) }}</strong>
+                </div>
+                <div class="cheque-field">
+                  <span>نسبة المصاريف الإدارية</span>
+                  <strong>{{
+                    formatPercent(prepared.administrativeExpensesPercentage)
+                  }}</strong>
+                </div>
+                <div class="cheque-field">
+                  <span>المبلغ النهائي المتوقع</span>
+                  <strong>{{ formatMoney(prepared.finalAmount) }}</strong>
+                </div>
+              </div>
               <label>
                 تاريخ البداية
                 <input
@@ -1501,11 +1778,26 @@
               >
                 <label class="allocation-field">
                   اسم الإدارة
-                  <input
-                    type="text"
+                  <select
+                    *ngIf="prepared.departments.length; else noDepartments"
                     [name]="'departmentName' + i"
                     [(ngModel)]="allocation.departmentName"
-                  />
+                  >
+                    <option
+                      *ngFor="let departmentName of prepared.departments"
+                      [value]="departmentName"
+                    >
+                      {{ departmentName }}
+                    </option>
+                  </select>
+                  <ng-template #noDepartments>
+                    <input
+                      type="text"
+                      [name]="'departmentName' + i"
+                      value="بدون إدارة"
+                      readonly
+                    />
+                  </ng-template>
                 </label>
                 <label class="allocation-field">
                   المبلغ
@@ -1543,7 +1835,15 @@
                 <th>رقم الشيك</th>
                 <th>اسم البنك</th>
                 <th>الإدارة</th>
-                <th>المبلغ</th>
+                <th>قبل الخصم</th>
+                <th>بعد الخصم</th>
+                <th>فرق الخصم</th>
+                <th>الضريبة</th>
+                <th>المصاريف الإدارية</th>
+                <th>النهائي المتوقع</th>
+                <th>المدفوع</th>
+                <th>فرق الدفع</th>
+                <th>نوع الفرق</th>
                 <th>البداية</th>
                 <th>النهاية</th>
                 <th>الحالة</th>
@@ -1557,7 +1857,22 @@
                 <td dir="ltr">{{ cheque.chequeNumber || "-" }}</td>
                 <td>{{ cheque.bankName || "-" }}</td>
                 <td>{{ cheque.departmentName || "-" }}</td>
-                <td>{{ formatMoney(cheque.amount) }}</td>
+                <td>{{ formatMoney(chequeFinancialAmount(cheque, "amountBeforeDiscount")) }}</td>
+                <td>{{ formatMoney(chequeFinancialAmount(cheque, "amountAfterDiscount")) }}</td>
+                <td>{{ formatMoney(chequeFinancialAmount(cheque, "discountDifference")) }}</td>
+                <td>{{ formatPercent(cheque.taxPercentage) }}</td>
+                <td>{{ formatPercent(cheque.administrativeExpensesPercentage) }}</td>
+                <td>{{ formatMoney(chequeFinancialAmount(cheque, "finalAmount")) }}</td>
+                <td>{{ formatMoney(chequePaidAmount(cheque)) }}</td>
+                <td>{{ formatMoney(chequeFinancialAmount(cheque, "paymentDifference")) }}</td>
+                <td>
+                  <span
+                    class="difference-pill"
+                    [ngClass]="paymentDifferenceClass(cheque.paymentDifferenceType)"
+                  >
+                    {{ displayPaymentDifferenceType(cheque.paymentDifferenceType) }}
+                  </span>
+                </td>
                 <td>{{ cheque.startDate | date: "mediumDate" }}</td>
                 <td>{{ cheque.endDate | date: "mediumDate" }}</td>
                 <td>{{ displayChequeStatus(cheque.status) }}</td>
@@ -1610,7 +1925,9 @@
                     <th>الشركة</th>
                     <th>رقم الشيك</th>
                     <th>اسم البنك</th>
-                    <th>المبلغ</th>
+                    <th>المدفوع</th>
+                    <th>النهائي المتوقع</th>
+                    <th>فرق الدفع</th>
                     <th>تاريخ الاستحقاق</th>
                     <th>الحالة</th>
                   </tr>
@@ -1620,7 +1937,9 @@
                     <td>{{ cheque.companyName }}</td>
                     <td dir="ltr">{{ cheque.chequeNumber || "-" }}</td>
                     <td>{{ cheque.bankName || "-" }}</td>
-                    <td>{{ formatMoney(cheque.amount) }}</td>
+                    <td>{{ formatMoney(chequePaidAmount(cheque)) }}</td>
+                    <td>{{ formatMoney(chequeFinancialAmount(cheque, "finalAmount")) }}</td>
+                    <td>{{ formatMoney(chequeFinancialAmount(cheque, "paymentDifference")) }}</td>
                     <td>{{ cheque.endDate | date: "mediumDate" }}</td>
                     <td>{{ displayChequeStatus(cheque.status) }}</td>
                   </tr>
@@ -1706,6 +2025,13 @@
           </button>
         </div>
       </section>
+
+      <section
+        class="workflow-step-panel"
+        *ngIf="isPharmacy() && activePharmacyStep() === 'reports'"
+      >
+        <app-reports></app-reports>
+      </section>
     </section>
   </section>
 
@@ -1723,7 +2049,7 @@
         © {{ currentYear() }}
       </p>
       <p class="mt-8 text-center text-sm font-medium text-slate-400">
-        Software Version 2.5.8
+        Software Version 2.9.8
       </p>
     </div>
   </footer>

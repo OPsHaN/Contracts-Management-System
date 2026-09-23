@@ -6,13 +6,16 @@ import { environment } from '../../environments/environment';
 import {
   ChequeDto,
   ChequePrepareResponse,
+  ClaimDifferencesResponse,
   ClaimDto,
   ClaimReviewRequest,
   ClaimReviewResponse,
   ClaimsPivotResponse,
   CompanyInsightsResponse,
+  CompanyProfileRow,
   CreateChequesRequest,
   GenerateClaimsRequest,
+  PagedResponse,
   SalesBatchStatus,
   SalesBatchUploadResponse,
   UpdateChequeStatusRequest
@@ -67,6 +70,29 @@ export class SalesClaimsService {
     return this.http.get<CompanyInsightsResponse>(`${this.apiUrl}/claims/company-insights`, { params });
   }
 
+  getCompanyProfile(
+    companyName: string,
+    month: number | null,
+    year: number | null,
+    pageNumber = 1,
+    pageSize = 20,
+  ): Observable<PagedResponse<CompanyProfileRow>> {
+    let params = new HttpParams()
+      .set('companyName', companyName)
+      .set('pageNumber', pageNumber)
+      .set('pageSize', pageSize);
+
+    if (month) {
+      params = params.set('month', month);
+    }
+
+    if (year) {
+      params = params.set('year', year);
+    }
+
+    return this.http.get<PagedResponse<CompanyProfileRow>>(`${this.apiUrl}/company-profile`, { params });
+  }
+
   saveClaimReview(claimId: string, payload: ClaimReviewRequest): Observable<ClaimReviewResponse> {
     return this.http.post<ClaimReviewResponse>(`${this.apiUrl}/claims/${claimId}/reviews`, payload);
   }
@@ -117,4 +143,12 @@ export class SalesClaimsService {
   getUpcomingDueCheques(): Observable<ChequeDto[]> {
     return this.http.get<ChequeDto[]>(`${this.apiUrl}/cheques/upcoming-due`);
   }
+
+
+  // inside SalesClaimsService
+getClaimDifferences(claimId: string): Observable<ClaimDifferencesResponse> {
+  return this.http.get<ClaimDifferencesResponse>(
+    `${this.apiUrl}/claims/${claimId}/reviews/differences`,
+  );
+}
 }

@@ -9,7 +9,7 @@ body {
 }
 
 .app-shell {
-  width: min(1180px, calc(100% - 32px));
+  width: min(1300px, calc(100% - 32px));
   margin: 0 auto;
   padding: 0px 0 0px;
   direction: rtl;
@@ -259,7 +259,7 @@ h3 {
 
 .workflow-steps {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   margin-bottom: 22px;
 }
@@ -1095,6 +1095,17 @@ tbody tr:hover {
   gap: 12px;
 }
 
+.company-profile-panel,
+.financial-summary-grid {
+  margin-top: 16px;
+}
+
+.financial-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
 .cheque-identity-grid,
 .cheque-bank-grid {
   display: grid;
@@ -1147,6 +1158,30 @@ tbody tr:hover {
 .status.inactive {
   background: #fff0f0;
   color: #b91c1c;
+}
+
+.difference-pill {
+  display: inline-flex;
+  border-radius: 20px;
+  padding: 5px 9px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.difference-Increase {
+  background: #fff7ed;
+  color: #b45309;
+}
+
+.difference-Decrease {
+  background: #fff1f0;
+  color: #b91c1c;
+}
+
+.difference-Equal {
+  background: #e5f8ee;
+  color: #08724d;
 }
 
 .company-grid {
@@ -1215,6 +1250,7 @@ dd {
   .review-cheque-grid,
   .cheque-identity-grid,
   .cheque-bank-grid,
+  .financial-summary-grid,
   .department-create-form,
   .allocation-row,
   .workflow-steps {

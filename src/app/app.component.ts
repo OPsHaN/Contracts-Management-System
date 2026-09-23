@@ -8,26 +8,33 @@ import {
   ChequeAllocation,
   ChequeDto,
   ChequePrepareResponse,
+  ClaimDifferencesResponse,
   ClaimDto,
   ClaimReviewRequest,
   ClaimReviewResponse,
   ClaimsPivotResponse,
   CompanyDto,
   CompanyInsightsResponse,
+  CompanyProfileRow,
   CompanyRequest,
   CompanyRespons,
   CreateDepartmentRequest,
   CreateReviewerRequest,
   CreateUserRequest,
   DepartmentDto,
+  PagedResponse,
   ReviewerDto,
   SalesBatchStatus,
   SalesBatchUploadResponse,
   UserDto,
   UserRole,
+  DifferenceReason,
+  DifferenceType,
+  PaymentDifferenceType,
 } from "./core/api.models";
 import { AuthService } from "./core/auth.service";
 import { CompaniesService } from "./core/companies.service";
+import { ReportsComponent } from "./core/reports.component";
 import { SalesClaimsService } from "./core/sales-claims.service";
 import { UsersService } from "./core/users.service";
 
@@ -36,12 +43,13 @@ type PharmacyStep =
   | "upload"
   | "claims-summary"
   | "claims"
-  | "claim-review";
+  | "claim-review"
+  | "reports";
 
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ReportsComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.scss",
 })
@@ -57,6 +65,20 @@ export class AppComponent {
   readonly isClaimsReviewer = computed(
     () => this.session()?.role === "ClaimsReviewer",
   );
+
+    readonly showDifferencesModal = signal(false);
+  readonly claimDifferences = signal<ClaimDifferencesResponse | null>(null);
+  readonly claimDifferencesLoading = signal(false);
+  readonly claimDifferencesError = signal('');
+  readonly claimDifferencesClaimId = signal<string | null>(null);
+
+  readonly claimDifferencesTotal = computed(() => {
+    const data = this.claimDifferences();
+    if (!data) {
+      return 0;
+    }
+    return data.differences.reduce((sum, item) => sum + item.value, 0);
+  });
 
   readonly loading = signal(false);
   readonly message = signal("");
@@ -80,6 +102,9 @@ export class AppComponent {
   readonly pivotData = signal<ClaimsPivotResponse | null>(null);
   readonly claims = signal<ClaimDto[]>([]);
   readonly companyInsights = signal<CompanyInsightsResponse | null>(null);
+  readonly companyProfile = signal<PagedResponse<CompanyProfileRow> | null>(null);
+  readonly companyProfileLoading = signal(false);
+  readonly companyProfileError = signal("");
   readonly selectedClaim = signal<ClaimDto | null>(null);
   readonly selectedClaimReview = signal<ClaimReviewResponse | null>(null);
   readonly preparedCheque = signal<ChequePrepareResponse | null>(null);
@@ -201,6 +226,11 @@ export class AppComponent {
         label: "مراجعة المطالبة",
         hint: "المطالبة والشيكات",
       },
+      {
+        key: "reports",
+        label: "التقارير المالية",
+        hint: "الأرصدة والمديونيات",
+      },
     ];
 
   loginForm = {
@@ -212,6 +242,13 @@ export class AppComponent {
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
     companyName: "",
+  };
+
+  companyProfileFilter = {
+    month: null as number | null,
+    year: null as number | null,
+    pageNumber: 1,
+    pageSize: 20,
   };
 
   reviewForm: ClaimReviewRequest = this.emptyReviewForm();
@@ -464,6 +501,11 @@ export class AppComponent {
     this.claimsFilter.companyName = "";
     this.appliedCompanyName.set("");
     this.companyInsights.set(null);
+    this.companyProfile.set(null);
+    this.companyProfileError.set("");
+    this.companyProfileFilter.month = this.claimsFilter.month;
+    this.companyProfileFilter.year = this.claimsFilter.year;
+    this.companyProfileFilter.pageNumber = 1;
     this.preparedCheque.set(null);
     this.selectedClaim.set(null);
     this.selectedClaimReview.set(null);
@@ -474,16 +516,22 @@ export class AppComponent {
 
   applyCompanyFilter(): void {
     this.appliedCompanyName.set(this.claimsFilter.companyName.trim());
+    this.companyProfileFilter.month = this.claimsFilter.month;
+    this.companyProfileFilter.year = this.claimsFilter.year;
+    this.companyProfileFilter.pageNumber = 1;
     this.loadClaims();
 
     if (this.claimsFilter.companyName.trim()) {
       this.loadCompanyInsights();
+      this.loadCompanyProfile();
       this.prepareCheque();
       this.loadCheques();
       return;
     }
 
     this.companyInsights.set(null);
+    this.companyProfile.set(null);
+    this.companyProfileError.set("");
     this.preparedCheque.set(null);
     this.loadCheques();
   }
@@ -810,10 +858,22 @@ export class AppComponent {
       allocations: this.chequeForm.allocations.map((allocation) => ({
         ...allocation,
         departmentName: allocation.departmentName?.trim() || null,
-        ChequeNumber: this.chequeForm.ChequeNumber.trim() || null,
-        BankName: this.chequeForm.BankName.trim() || null,
+        chequeNumber: this.chequeForm.ChequeNumber.trim() || null,
+        bankName: this.chequeForm.BankName.trim() || null,
       })),
     };
+
+    const allocationsTotal = payload.allocations.reduce(
+      (total, allocation) => total + Number(allocation.amount || 0),
+      0,
+    );
+
+    if (Math.abs(allocationsTotal - prepared.amount) > 0.01) {
+      this.message.set(
+        `إجمالي مبالغ الشيكات يجب أن يساوي ${this.formatMoney(prepared.amount)}.`,
+      );
+      return;
+    }
 
     this.withLoading(
       this.salesClaimsService.createCheques(prepared.claimId, payload),
@@ -885,8 +945,8 @@ export class AppComponent {
       chequeId: cheque.id,
       status: cheque.status as "Pending" | "PaidInFull" | "PartiallyPaid",
       remainingAmount: cheque.remainingAmount,
-      chequeNumber: cheque.chequeNumber,
-      bankName: cheque.bankName,
+      chequeNumber: cheque.chequeNumber ?? "",
+      bankName: cheque.bankName ?? "",
     };
 
     this.showChequeStatusModal.set(true);
@@ -1234,13 +1294,80 @@ export class AppComponent {
     return labels[discrepancyType] ?? discrepancyType;
   }
 
-  formatMoney(value: number): string {
+  formatMoney(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+      return "-";
+    }
+
     const formattedValue = new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(value);
 
     return `${formattedValue} ج.م`;
+  }
+
+  formatPercent(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+      return "-";
+    }
+
+    return `${new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value)}%`;
+  }
+
+  chequePaidAmount(cheque: ChequeDto): number {
+    return cheque.paidAmount ?? cheque.amount;
+  }
+
+  chequeFinancialAmount(
+    cheque: ChequeDto,
+    key:
+      | "amountBeforeDiscount"
+      | "amountAfterDiscount"
+      | "discountDifference"
+      | "finalAmount"
+      | "paymentDifference",
+  ): number {
+    if (key === "paymentDifference") {
+      return Math.abs(cheque.paymentDifference ?? 0);
+    }
+
+    return cheque[key] ?? cheque.amount;
+  }
+
+  displayPaymentDifferenceType(type: PaymentDifferenceType | undefined): string {
+    const labels: Record<PaymentDifferenceType, string> = {
+      Increase: "زيادة",
+      Decrease: "نقص",
+      Equal: "مطابق",
+    };
+
+    return type ? labels[type] ?? type : "-";
+  }
+
+  paymentDifferenceClass(type: PaymentDifferenceType | undefined): string {
+    return `difference-${type ?? "Equal"}`;
+  }
+
+  profileTotalPages(profile: PagedResponse<CompanyProfileRow>): number {
+    return (
+      profile.totalPages ??
+      Math.max(1, Math.ceil(profile.totalCount / profile.pageSize))
+    );
+  }
+
+  profileHasPreviousPage(profile: PagedResponse<CompanyProfileRow>): boolean {
+    return profile.hasPreviousPage ?? profile.pageNumber > 1;
+  }
+
+  profileHasNextPage(profile: PagedResponse<CompanyProfileRow>): boolean {
+    return (
+      profile.hasNextPage ??
+      profile.pageNumber < this.profileTotalPages(profile)
+    );
   }
 
   private clearSalesData(): void {
@@ -1279,8 +1406,8 @@ export class AppComponent {
         {
           departmentName: "",
           amount: prepared.amount,
-          ChequeNumber: null,
-          BankName: null,
+          chequeNumber: null,
+          bankName: null,
         },
       ];
     }
@@ -1293,12 +1420,124 @@ export class AppComponent {
         index === prepared.departments.length - 1
           ? Number((prepared.amount - baseAmount * index).toFixed(2))
           : baseAmount,
-      ChequeNumber: null,
-      BankName: null,
+      chequeNumber: null,
+      bankName: null,
     }));
   }
 
   ngOnInit(): void {
     this.loadRoleData();
   }
+
+  viewClaimDifferences(claim: ClaimDto): void {
+    if (this.claimDifferencesLoading()) {
+      return;
+    }
+
+    this.claimDifferencesClaimId.set(claim.id);
+    this.claimDifferences.set(null);
+    this.claimDifferencesError.set('');
+    this.showDifferencesModal.set(true);
+    this.claimDifferencesLoading.set(true);
+
+    this.salesClaimsService
+      .getClaimDifferences(claim.id)
+      .pipe(finalize(() => this.claimDifferencesLoading.set(false)))
+      .subscribe({
+        next: (response) => this.claimDifferences.set(response),
+        error: (error: HttpErrorResponse) => {
+          if (error.status === 404) {
+            this.claimDifferencesError.set(
+              'لا توجد تفاصيل مراجعة أو فروق متاحة لهذه المطالبة.',
+            );
+            return;
+          }
+
+          this.claimDifferencesError.set(
+            'تعذر تحميل تفاصيل الفروق. تأكد من اتصال الـ API وحاول مرة أخرى.',
+          );
+      },
+    });
+  }
+
+  loadCompanyProfile(pageNumber = this.companyProfileFilter.pageNumber): void {
+    const companyName = this.claimsFilter.companyName.trim();
+
+    if (!companyName) {
+      this.companyProfile.set(null);
+      this.companyProfileError.set("");
+      return;
+    }
+
+    this.companyProfileFilter.pageNumber = pageNumber;
+    this.companyProfileLoading.set(true);
+    this.companyProfileError.set("");
+
+    this.salesClaimsService
+      .getCompanyProfile(
+        companyName,
+        this.companyProfileFilter.month || null,
+        this.companyProfileFilter.year || null,
+        this.companyProfileFilter.pageNumber,
+        this.companyProfileFilter.pageSize,
+      )
+      .pipe(finalize(() => this.companyProfileLoading.set(false)))
+      .subscribe({
+        next: (profile) => this.companyProfile.set(profile),
+        error: (error: HttpErrorResponse) => {
+          const errors = error.error?.errors;
+          this.companyProfile.set(null);
+          this.companyProfileError.set(
+            Array.isArray(errors)
+              ? errors.join(" ")
+              : "تعذر تحميل ملف الشركة. حاول مرة أخرى.",
+          );
+        },
+      });
+  }
+
+  changeCompanyProfilePage(pageNumber: number): void {
+    if (pageNumber < 1 || this.companyProfileLoading()) {
+      return;
+    }
+
+    const profile = this.companyProfile();
+    const totalPages = profile ? this.profileTotalPages(profile) : null;
+
+    if (totalPages && pageNumber > totalPages) {
+      return;
+    }
+
+    this.loadCompanyProfile(pageNumber);
+  }
+
+  closeDifferencesModal(): void {
+    this.showDifferencesModal.set(false);
+    this.claimDifferences.set(null);
+    this.claimDifferencesError.set('');
+    this.claimDifferencesClaimId.set(null);
+  }
+
+  displayDifferenceType(type: DifferenceType): string {
+    const labels: Record<DifferenceType, string> = {
+      Increase: 'زيادة',
+      Decrease: 'نقصان',
+      NoDifference: 'لا يوجد فرق',
+    };
+
+    return labels[type] ?? type;
+  }
+
+  displayDifferenceReason(reason: DifferenceReason): string {
+    const labels: Record<DifferenceReason, string> = {
+      ContractualDeduction: 'خصم تعاقدي',
+      DeferredToNextMonth: 'مؤجل للشهر القادم',
+      AccountingDeficit: 'خطأ محاسبي',
+      Other: 'أخرى',
+    };
+
+    return labels[reason] ?? reason;
+  }
+
+
 }

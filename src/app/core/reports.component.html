@@ -1,0 +1,383 @@
+<section class="reports-page" aria-labelledby="reportsTitle">
+  <header class="reports-hero">
+    <div>
+      <p class="eyebrow">التقارير المالية</p>
+      <h2 id="reportsTitle">نظرة مالية واضحة وسريعة</h2>
+      <p class="hero-copy">
+        تابع الأرصدة، أعمار الديون، أكبر المديونيات، والشيكات المستحقة من مكان واحد.
+      </p>
+    </div>
+    <div class="hero-stat">
+      <span>المستحقات الحالية</span>
+      <strong>{{ totalOutstanding() !== null ? formatMoney(totalOutstanding()!) : "-" }}</strong>
+    </div>
+  </header>
+
+  <section class="report-section summary-section" aria-labelledby="summaryHeading">
+    <div class="section-head">
+      <div>
+        <span class="section-kicker">ملخص عام</span>
+        <h3 id="summaryHeading" class="section-title">الأرصدة الرئيسية</h3>
+      </div>
+      <button type="button" class="ghost-button compact-button" (click)="retryTotalBalance()">
+        تحديث الملخص
+      </button>
+    </div>
+
+    <div class="inline-loader" *ngIf="totalBalanceLoading()">
+      <span class="spinner"></span>
+      <strong>جاري تحميل الملخص</strong>
+    </div>
+
+    <div
+      class="empty-state error-state"
+      [class.access-denied]="totalBalanceError()?.isAccessDenied"
+      *ngIf="!totalBalanceLoading() && totalBalanceError() as err"
+    >
+      <span>{{ err.message }}</span>
+      <button type="button" class="ghost-button" (click)="retryTotalBalance()">
+        إعادة المحاولة
+      </button>
+    </div>
+
+    <div class="summary-cards" *ngIf="!totalBalanceLoading() && !totalBalanceError()">
+      <article class="summary-card claimed">
+        <span>إجمالي المطالبات</span>
+        <strong>{{ totalBalance() ? formatMoney(totalBalance()!.totalClaimed) : "-" }}</strong>
+      </article>
+      <article class="summary-card collected">
+        <span>إجمالي المحصل</span>
+        <strong>{{ totalBalance() ? formatMoney(totalBalance()!.totalCollected) : "-" }}</strong>
+      </article>
+      <article class="summary-card balance">
+        <span>الرصيد الحالي</span>
+        <strong>{{ totalBalance() ? formatMoney(totalBalance()!.balance) : "-" }}</strong>
+      </article>
+      <article class="summary-card outstanding">
+        <span>غير محصل</span>
+        <strong>{{ totalOutstanding() !== null ? formatMoney(totalOutstanding()!) : "-" }}</strong>
+      </article>
+    </div>
+  </section>
+
+  <div class="reports-grid">
+    <section class="report-section" aria-labelledby="companyBalanceHeading">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">حسب الشركة</span>
+          <h3 id="companyBalanceHeading" class="section-title">رصيد شركة محددة</h3>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <label>
+          اختر الشركة
+          <select
+            name="balanceCompany"
+            [ngModel]="selectedBalanceCompany()"
+            (ngModelChange)="selectBalanceCompany($event)"
+            [attr.aria-busy]="companiesLoading()"
+          >
+            <option value="">اختار شركة لعرض رصيدها</option>
+            <option *ngFor="let name of companyNames()" [value]="name">{{ name }}</option>
+          </select>
+        </label>
+
+        <button
+          type="button"
+          class="ghost-button"
+          (click)="clearBalanceCompany()"
+          [disabled]="!selectedBalanceCompany()"
+        >
+          مسح
+        </button>
+      </div>
+
+      <div class="inline-loader" *ngIf="companyBalanceLoading()">
+        <span class="spinner"></span>
+        <strong>جاري تحميل رصيد الشركة</strong>
+      </div>
+
+      <div
+        class="empty-state error-state"
+        [class.access-denied]="companyBalanceError()?.isAccessDenied"
+        *ngIf="!companyBalanceLoading() && companyBalanceError() as err"
+      >
+        <span>{{ err.message }}</span>
+        <button type="button" class="ghost-button" (click)="retryCompanyBalance()">
+          إعادة المحاولة
+        </button>
+      </div>
+
+      <div
+        class="friendly-empty"
+        *ngIf="!selectedBalanceCompany() && !companyBalanceLoading() && !companyBalanceError()"
+      >
+        <strong>ابدأ باختيار شركة</strong>
+        <span>سيظهر هنا إجمالي المطالبات والتحصيل والرصيد الحالي للشركة.</span>
+      </div>
+
+      <div
+        class="company-balance-card"
+        *ngIf="!companyBalanceLoading() && !companyBalanceError() && companyBalance() as balance"
+      >
+        <div class="company-title">
+          <span>الشركة</span>
+          <strong>{{ balance.companyName }}</strong>
+        </div>
+        <div class="metric-list">
+          <div>
+            <span>المطالب به</span>
+            <strong>{{ formatMoney(balance.totalClaimed) }}</strong>
+          </div>
+          <div>
+            <span>المحصل</span>
+            <strong>{{ formatMoney(balance.totalCollected) }}</strong>
+          </div>
+          <div class="danger-metric">
+            <span>الرصيد</span>
+            <strong>{{ formatMoney(balance.balance) }}</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="report-section" aria-labelledby="agingHeading">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">أعمار الديون</span>
+          <h3 id="agingHeading" class="section-title">توزيع المستحقات</h3>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <label>
+          فلترة حسب الشركة
+          <select
+            name="agingCompany"
+            [ngModel]="agingCompanyFilter()"
+            (ngModelChange)="setAgingCompanyFilter($event)"
+          >
+            <option value="">كل الشركات</option>
+            <option *ngFor="let name of companyNames()" [value]="name">{{ name }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="inline-loader" *ngIf="agingLoading()">
+        <span class="spinner"></span>
+        <strong>جاري تحميل تقرير الأعمار</strong>
+      </div>
+
+      <div
+        class="empty-state error-state"
+        [class.access-denied]="agingError()?.isAccessDenied"
+        *ngIf="!agingLoading() && agingError() as err"
+      >
+        <span>{{ err.message }}</span>
+        <button type="button" class="ghost-button" (click)="retryAging()">إعادة المحاولة</button>
+      </div>
+
+      <div class="aging-panel" *ngIf="!agingLoading() && !agingError() && aging() as report">
+        <div class="total-outstanding">
+          <span>إجمالي المستحقات</span>
+          <strong>{{ formatMoney(report.totalOutstanding) }}</strong>
+        </div>
+
+        <div class="aging-list" aria-label="تفاصيل أعمار الديون">
+          <article class="aging-row not-due">
+            <div>
+              <span>لم يحن موعد الاستحقاق</span>
+              <strong>{{ formatMoney(report.notYetDue) }}</strong>
+            </div>
+            <div class="track">
+              <span [style.width.%]="agingPercent(report.notYetDue, report.totalOutstanding)"></span>
+            </div>
+          </article>
+          <article class="aging-row due-0-30">
+            <div>
+              <span>متأخر 1-30 يوم</span>
+              <strong>{{ formatMoney(report.overdue0To30) }}</strong>
+            </div>
+            <div class="track">
+              <span [style.width.%]="agingPercent(report.overdue0To30, report.totalOutstanding)"></span>
+            </div>
+          </article>
+          <article class="aging-row due-31-60">
+            <div>
+              <span>متأخر 31-60 يوم</span>
+              <strong>{{ formatMoney(report.overdue31To60) }}</strong>
+            </div>
+            <div class="track">
+              <span [style.width.%]="agingPercent(report.overdue31To60, report.totalOutstanding)"></span>
+            </div>
+          </article>
+          <article class="aging-row due-60-plus">
+            <div>
+              <span>متأخر أكثر من 60 يوم</span>
+              <strong>{{ formatMoney(report.overdue60Plus) }}</strong>
+            </div>
+            <div class="track">
+              <span [style.width.%]="agingPercent(report.overdue60Plus, report.totalOutstanding)"></span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="report-section" aria-labelledby="topDebtorsHeading">
+    <div class="section-head">
+      <div>
+        <span class="section-kicker">الأولوية في التحصيل</span>
+        <h3 id="topDebtorsHeading" class="section-title">أكبر المديونيات</h3>
+      </div>
+      <div class="filter-row inline-filter">
+        <label>
+          عدد الشركات
+          <select
+            name="topCount"
+            [ngModel]="topCount()"
+            (ngModelChange)="setTopCount($event)"
+          >
+            <option *ngFor="let option of topOptions" [ngValue]="option">{{ option }}</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="inline-loader" *ngIf="topDebtorsLoading()">
+      <span class="spinner"></span>
+      <strong>جاري تحميل أكبر المديونيات</strong>
+    </div>
+
+    <div
+      class="empty-state error-state"
+      [class.access-denied]="topDebtorsError()?.isAccessDenied"
+      *ngIf="!topDebtorsLoading() && topDebtorsError() as err"
+    >
+      <span>{{ err.message }}</span>
+      <button type="button" class="ghost-button" (click)="retryTopDebtors()">
+        إعادة المحاولة
+      </button>
+    </div>
+
+    <div
+      class="friendly-empty"
+      *ngIf="!topDebtorsLoading() && !topDebtorsError() && !topDebtors().length"
+    >
+      <strong>لا توجد مديونيات مسجلة</strong>
+      <span>عند توفر بيانات، ستظهر الشركات الأعلى رصيدًا هنا.</span>
+    </div>
+
+    <div
+      class="table-wrap reports-table-wrap"
+      *ngIf="!topDebtorsLoading() && !topDebtorsError() && topDebtors().length"
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>الترتيب</th>
+            <th>الشركة</th>
+            <th>إجمالي المطالب به</th>
+            <th>إجمالي المحصل</th>
+            <th>الرصيد</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let debtor of topDebtors(); let i = index">
+            <td><span class="rank-badge">{{ i + 1 }}</span></td>
+            <td>
+              <strong>{{ debtor.companyName }}</strong>
+              <div class="debt-bar" aria-hidden="true">
+                <span [style.width.%]="balancePercent(debtor.balance)"></span>
+              </div>
+            </td>
+            <td>{{ formatMoney(debtor.totalClaimed) }}</td>
+            <td>{{ formatMoney(debtor.totalCollected) }}</td>
+            <td class="amount-danger">{{ formatMoney(debtor.balance) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="report-section" aria-labelledby="upcomingHeading">
+    <div class="section-head">
+      <div>
+        <span class="section-kicker">متابعة الشيكات</span>
+        <h3 id="upcomingHeading" class="section-title">الشيكات المستحقة قريبًا</h3>
+      </div>
+      <div class="filter-row inline-filter">
+        <label>
+          خلال
+          <select
+            name="upcomingDays"
+            [ngModel]="upcomingDays()"
+            (ngModelChange)="setUpcomingDays($event)"
+          >
+            <option *ngFor="let option of daysOptions" [ngValue]="option">{{ option }} يوم</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="inline-loader" *ngIf="upcomingLoading()">
+      <span class="spinner"></span>
+      <strong>جاري تحميل الشيكات المستحقة</strong>
+    </div>
+
+    <div
+      class="empty-state error-state"
+      [class.access-denied]="upcomingError()?.isAccessDenied"
+      *ngIf="!upcomingLoading() && upcomingError() as err"
+    >
+      <span>{{ err.message }}</span>
+      <button type="button" class="ghost-button" (click)="retryUpcomingDue()">
+        إعادة المحاولة
+      </button>
+    </div>
+
+    <div
+      class="friendly-empty"
+      *ngIf="!upcomingLoading() && !upcomingError() && !upcomingDue().length"
+    >
+      <strong>لا توجد شيكات مستحقة</strong>
+      <span>جرّب تغيير المدة الزمنية من القائمة إذا كنت تبحث عن نطاق أوسع.</span>
+    </div>
+
+    <div
+      class="table-wrap reports-table-wrap"
+      *ngIf="!upcomingLoading() && !upcomingError() && upcomingDue().length"
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>الشركة</th>
+            <th>الإدارة</th>
+            <th>رقم الشيك</th>
+            <th>اسم البنك</th>
+            <th>المدفوع</th>
+            <th>تاريخ الاستحقاق</th>
+            <th>الأيام المتبقية</th>
+            <th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let cheque of upcomingDue()">
+            <td><strong>{{ cheque.companyName }}</strong></td>
+            <td>{{ cheque.departmentName || "-" }}</td>
+            <td dir="ltr">{{ cheque.chequeNumber || "-" }}</td>
+            <td>{{ cheque.bankName || "-" }}</td>
+            <td>{{ formatMoney(chequePaidAmount(cheque)) }}</td>
+            <td>{{ cheque.endDate | date: "mediumDate" }}</td>
+            <td>
+              <span class="days-pill">{{ daysRemaining(cheque.endDate) }} يوم</span>
+            </td>
+            <td>{{ displayChequeStatus(cheque.status) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>
