@@ -811,7 +811,7 @@ export class AppComponent {
       this.selectedClaimReview.set(null);
       this.reviewForm = {
         isAccurate: false,
-        correctedAmount: claim.correctedAmount ?? claim.claimAmountAfterDiscount,
+        correctedAmount: 0,
         correctedPrescriptionsCount:
           claim.correctedPrescriptionsCount ?? claim.prescriptionsCount,
         differences: this.defaultDifferencesForClaim(claim),
@@ -873,6 +873,8 @@ export class AppComponent {
       this.reviewForm.correctedAmount = null;
       this.reviewForm.correctedPrescriptionsCount = null;
       this.reviewForm.differences = [];
+    } else if (this.reviewForm.correctedAmount === null) {
+      this.reviewForm.correctedAmount = 0;
     }
   }
 

@@ -1182,12 +1182,15 @@
       </section>
 
       <section
-        class="workflow-step-panel"
+        class="workflow-step-panel claims-step-panel"
         *ngIf="activePharmacyStep() === 'claims'"
       >
-        <div class="step-heading">
+        <div
+          class="step-heading"
+          [class.reviewer-claims-heading]="isClaimsReviewer()"
+        >
           <div>
-            <p class="eyebrow">الخطوة الرابعة</p>
+            <p class="eyebrow" *ngIf="!isClaimsReviewer()">الخطوة الرابعة</p>
             <h3>مطالبات الشركات بعد الخصم</h3>
           </div>
         </div>
@@ -1234,7 +1237,7 @@
                 <th>عدد الروشتات الفعلية</th>
                 <th>{{ claimComparisonLabel("prescriptionsDeltaColumn") }}</th>
                 <th>قيمة فارما فلاي قبل الخصم</th>
-                <th>قيمة المطالبة الفعلية</th>
+                <th>قيمة المطالبة الفعلية قبل الخصم</th>
                 <th>{{ claimComparisonLabel("amountDeltaColumn") }}</th>
                 <th>الحالة</th>
                 <th>مراجعة</th>

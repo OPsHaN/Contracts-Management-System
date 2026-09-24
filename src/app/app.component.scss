@@ -9,7 +9,7 @@ body {
 }
 
 .app-shell {
-  width: min(1400px, calc(100% - 32px));
+  width: min(1600px, calc(100% - 24px));
   margin: 0 auto;
   padding: 0px 0 0px;
   direction: rtl;
@@ -326,6 +326,24 @@ h3 {
   align-items: center;
   gap: 16px;
   margin-bottom: 18px;
+}
+
+.step-heading.reviewer-claims-heading {
+  justify-content: center;
+}
+
+.reviewer-claims-heading > div {
+  width: min(620px, 100%);
+  border: 2px solid #b91c1c;
+  border-radius: 8px;
+  padding: 14px 20px;
+  background: #fff7f7;
+  text-align: center;
+}
+
+.reviewer-claims-heading h3 {
+  margin: 0;
+  color: #17251f;
 }
 
 .step-actions {
@@ -1041,7 +1059,37 @@ tbody tr:hover {
 }
 
 .claims-table-wrap {
+  max-height: min(65vh, 620px);
   margin-top: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 8px;
+}
+
+.claims-table-wrap table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.claims-table-wrap th,
+.claims-table-wrap td {
+  min-width: 0;
+  padding: 12px 6px;
+  font-size: 0.9rem;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.claims-table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  border-color: #31443b;
+  border-bottom: 3px solid #b91c1c;
+  background: #17251f;
+  color: #ffffff;
+  box-shadow: 0 2px 0 rgba(15, 23, 19, 0.18);
+  white-space: normal;
 }
 
 .claim-status-badge {
@@ -1102,6 +1150,20 @@ tbody tr:hover {
   border-color: #b91c1c;
   background: #fff1f2;
   color: #991b1b;
+}
+
+.claims-table-wrap .claim-status-badge,
+.claims-table-wrap .comparison-delta,
+.claims-table-wrap .claim-actions .text-button {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+}
+
+.claims-table-wrap .claim-actions {
+  width: 100%;
+  gap: 6px;
+  white-space: normal;
 }
 
 
@@ -1400,6 +1462,20 @@ dd {
 }
 
 @media (max-width: 860px) {
+  .claims-table-wrap {
+    max-height: 55vh;
+  }
+
+  .claims-step-panel {
+    padding-inline: 10px;
+  }
+
+  .claims-table-wrap th,
+  .claims-table-wrap td {
+    padding: 9px 3px;
+    font-size: 0.78rem;
+  }
+
   .topbar,
   .workspace,
   .panel-heading {
