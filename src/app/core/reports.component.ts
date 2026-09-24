@@ -8,6 +8,7 @@ import { Subject, catchError, finalize, of, switchMap, tap } from 'rxjs';
 import { AgingReport, CompanyBalance, CompanyDto, TotalBalance, UpcomingDueCheque } from './api.models';
 import { AuthService } from './auth.service';
 import { CompaniesService } from './companies.service';
+import { LoadingOverlayComponent } from './loading-overlay.component';
 import { ReportPeriodFilterComponent } from './report-period-filter.component';
 import { ReportPeriodFilter, ReportsService, extractReportErrorMessage } from './reports.service';
 
@@ -50,7 +51,7 @@ const UPCOMING_DAYS_OPTIONS = [7, 14, 30, 60] as const;
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReportPeriodFilterComponent],
+  imports: [CommonModule, FormsModule, ReportPeriodFilterComponent, LoadingOverlayComponent],
   templateUrl: './reports.component.html',
   styleUrl: './reports.component.scss',
 })
@@ -121,6 +122,15 @@ export class ReportsComponent {
   readonly upcomingError = signal<SectionError | null>(null);
   private readonly upcomingTrigger$ = new Subject<UpcomingDueQuery>();
 
+  readonly isReportsLoading = computed(
+    () =>
+      this.companiesLoading() ||
+      this.totalBalanceLoading() ||
+      this.companyBalanceLoading() ||
+      this.agingLoading() ||
+      this.topDebtorsLoading() ||
+      this.upcomingLoading(),
+  );
   readonly totalOutstanding = computed(() => this.aging()?.totalOutstanding ?? null);
   readonly maxDebtorBalance = computed(() =>
     Math.max(...this.topDebtors().map((debtor) => debtor.balance), 0),

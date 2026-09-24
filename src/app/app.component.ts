@@ -36,6 +36,7 @@ import {
 import { ArabicDigitsPipe } from "./core/arabic-digits.pipe";
 import { AuthService } from "./core/auth.service";
 import { CompaniesService } from "./core/companies.service";
+import { LoadingOverlayComponent } from "./core/loading-overlay.component";
 import { ReportsComponent } from "./core/reports.component";
 import { SalesClaimsService } from "./core/sales-claims.service";
 import { UsersService } from "./core/users.service";
@@ -52,7 +53,7 @@ type PharmacyStep =
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CommonModule, FormsModule, ReportsComponent, ArabicDigitsPipe],
+  imports: [CommonModule, FormsModule, ReportsComponent, ArabicDigitsPipe, LoadingOverlayComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.scss",
 })
@@ -123,6 +124,15 @@ export class AppComponent {
   readonly chequesLoading = signal(false);
   readonly batchPolling = signal(false);
   readonly uploadProgress = signal(0);
+  readonly isAppLoading = computed(
+    () =>
+      this.loading() ||
+      this.pivotLoading() ||
+      this.claimsLoading() ||
+      this.chequesLoading() ||
+      this.companyProfileLoading() ||
+      this.batchPolling(),
+  );
   readonly activePharmacyStep = signal<PharmacyStep>("companies");
   readonly appliedCompanyName = signal("");
   readonly showLoginPassword = signal(false);

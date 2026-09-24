@@ -9,7 +9,7 @@ body {
 }
 
 .app-shell {
-  width: min(1300px, calc(100% - 32px));
+  width: min(1400px, calc(100% - 32px));
   margin: 0 auto;
   padding: 0px 0 0px;
   direction: rtl;
@@ -513,7 +513,7 @@ button {
 
 button:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 14px 24px rgba(15, 122, 85, 0.24);
+  box-shadow: 0 14px 10px rgba(15, 122, 85, 0.24);
 }
 
 button:disabled {
@@ -1380,7 +1380,7 @@ dd {
 .workflow-steps button.active {
   border-color: #b91c1c;
   background: linear-gradient(135deg, #fff1f2, #ffffff);
-  box-shadow: 0 14px 30px rgba(127, 29, 29, 0.14);
+  box-shadow: 0 14px 10px rgba(127, 29, 29, 0.14);
 }
 
 .workflow-steps button.active span {
@@ -2008,5 +2008,58 @@ tbody tr:hover {
 
   .login-form-side h2 {
     font-size: 16px;
+  }
+}
+
+/* Connected workflow stepper */
+.workflow-steps {
+  display: flex;
+  gap: 22px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 6px 20px;
+  scroll-behavior: smooth;
+  scroll-snap-type: inline proximity;
+  scrollbar-color: #b91c1c #f4e7e7;
+  scrollbar-width: thin;
+}
+
+.workflow-steps button {
+  position: relative;
+  z-index: 1;
+  flex: 1 0 160px;
+  min-width: 160px;
+  overflow: visible;
+  scroll-snap-align: start;
+}
+
+.workflow-steps button:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  inset-inline-end: -22px;
+  width: 22px;
+  height: 8px;
+  transform: translateY(-50%);
+  background:
+    radial-gradient(circle at center, #ffffff 0 2px, #b91c1c 3px 5px, transparent 6px),
+    linear-gradient(to bottom, transparent 3px, #b91c1c 3px 5px, transparent 5px);
+  pointer-events: none;
+}
+
+.workflow-steps button.active::after,
+.workflow-steps button.done::after {
+  filter: drop-shadow(0 0 4px rgba(185, 28, 28, 0.42));
+}
+
+@media (max-width: 760px) {
+  .workflow-steps {
+    margin-inline: -4px;
+    padding-inline: 4px;
+  }
+
+  .workflow-steps button {
+    flex-basis: 172px;
   }
 }

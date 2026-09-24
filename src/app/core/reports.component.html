@@ -1,4 +1,5 @@
 <section class="reports-page" aria-labelledby="reportsTitle">
+  <app-loading-overlay *ngIf="isReportsLoading()"></app-loading-overlay>
   <header class="reports-hero">
     <div>
       <!-- <p class="eyebrow">التقارير المالية</p> -->

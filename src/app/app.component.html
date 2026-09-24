@@ -1,4 +1,5 @@
 <main class="app-shell">
+  <app-loading-overlay *ngIf="isAppLoading()"></app-loading-overlay>
   <header class="topbar" *ngIf="session()">
     <div>
       <!-- <h1>إدارة التعاقدات</h1> -->
@@ -739,7 +740,7 @@
               </div>
 
               <div class="excel-text">
-                <strong>اختر ملف Excel</strong>
+                <strong>اختر ملف Excel</strong><br><br>
                 <span>اضغط هنا لاختيار ملف .xlsx أو .xls</span>
               </div>
 
@@ -2046,7 +2047,7 @@
         © {{ currentYear() | arabicDigits }}
       </p>
       <p class="mt-8 text-center text-sm font-medium text-slate-400">
-        Software Version 2.9.8
+        Software Version 3.0.1
       </p>
     </div>
   </footer>
