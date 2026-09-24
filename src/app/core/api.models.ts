@@ -188,23 +188,6 @@ export interface GenerateClaimsRequest {
  * approved as-is). When `isAccurate` is `false`, all three are required:
  * `correctedPrescriptionsCount` must additionally be a whole number >= 0.
  */
-export interface ClaimReviewRequest {
-  isAccurate: boolean;
-  correctedAmount: number | null;
-  correctedPrescriptionsCount: number | null;
-  discrepancyType: string | null;
-  notes: string | null;
-}
-
-export interface ClaimReviewResponse extends ClaimReviewRequest {
-  id: string;
-  claimId: string;
-  reviewedByUserId: string;
-  wasEditedByPharmacy: boolean;
-  createdAt: string;
-  lastEditedAt: string | null;
-}
-
 export interface ChequePrepareResponse {
   claimId: string;
   companyName: string;
@@ -268,6 +251,28 @@ export type DifferenceReason =
   | 'DeferredToNextMonth'
   | 'AccountingDeficit'
   | 'Other';
+
+export interface ClaimReviewDifferenceRequest {
+  value: number;
+  reason: DifferenceReason;
+}
+
+export interface ClaimReviewRequest {
+  isAccurate: boolean;
+  correctedAmount: number | null;
+  correctedPrescriptionsCount: number | null;
+  differences: ClaimReviewDifferenceRequest[];
+  notes: string | null;
+}
+
+export interface ClaimReviewResponse extends ClaimReviewRequest {
+  id: string;
+  claimId: string;
+  reviewedByUserId: string;
+  wasEditedByPharmacy?: boolean;
+  createdAt: string;
+  lastEditedAt?: string | null;
+}
 
 export interface ClaimDifferenceItem {
   id: string;

@@ -5,6 +5,11 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AgingReport, CompanyBalance, TotalBalance, UpcomingDueCheque } from './api.models';
 
+export interface ReportPeriodFilter {
+  month: number | null;
+  year: number | null;
+}
+
 /**
  * Financial reports endpoints.
  *
@@ -34,36 +39,57 @@ export class ReportsService {
    * so `companyName` is transmitted safely without manual
    * `encodeURIComponent` (which would double-encode it).
    */
-  getCompanyBalance(companyName: string): Observable<CompanyBalance> {
-    const params = new HttpParams().set('companyName', companyName);
+  getCompanyBalance(companyName: string, filters?: ReportPeriodFilter): Observable<CompanyBalance> {
+    const params = this.withPeriodFilters(
+      new HttpParams().set('companyName', companyName),
+      filters,
+    );
 
     return this.http.get<CompanyBalance>(`${this.claimsReportsUrl}/company-balance`, { params });
   }
 
-  getTotalBalance(): Observable<TotalBalance> {
-    return this.http.get<TotalBalance>(`${this.claimsReportsUrl}/total-balance`);
+  getTotalBalance(filters?: ReportPeriodFilter): Observable<TotalBalance> {
+    const params = this.withPeriodFilters(new HttpParams(), filters);
+
+    return this.http.get<TotalBalance>(`${this.claimsReportsUrl}/total-balance`, { params });
   }
 
-  getAgingReport(companyName?: string): Observable<AgingReport> {
+  getAgingReport(companyName?: string, filters?: ReportPeriodFilter): Observable<AgingReport> {
     let params = new HttpParams();
 
     if (companyName) {
       params = params.set('companyName', companyName);
     }
 
+    params = this.withPeriodFilters(params, filters);
+
     return this.http.get<AgingReport>(`${this.claimsReportsUrl}/aging`, { params });
   }
 
-  getTopDebtors(top = 10): Observable<CompanyBalance[]> {
-    const params = new HttpParams().set('top', top);
+  getTopDebtors(top = 10, filters?: ReportPeriodFilter): Observable<CompanyBalance[]> {
+    const params = this.withPeriodFilters(new HttpParams().set('top', top), filters);
 
     return this.http.get<CompanyBalance[]>(`${this.claimsReportsUrl}/top-debtors`, { params });
   }
 
-  getUpcomingDue(days = 7): Observable<UpcomingDueCheque[]> {
-    const params = new HttpParams().set('days', days);
+  getUpcomingDue(days = 7, filters?: ReportPeriodFilter): Observable<UpcomingDueCheque[]> {
+    const params = this.withPeriodFilters(new HttpParams().set('days', days), filters);
 
     return this.http.get<UpcomingDueCheque[]>(`${this.chequesUrl}/upcoming-due`, { params });
+  }
+
+  private withPeriodFilters(params: HttpParams, filters?: ReportPeriodFilter): HttpParams {
+    let nextParams = params;
+
+    if (filters?.month) {
+      nextParams = nextParams.set('month', filters.month);
+    }
+
+    if (filters?.year) {
+      nextParams = nextParams.set('year', filters.year);
+    }
+
+    return nextParams;
   }
 }
 

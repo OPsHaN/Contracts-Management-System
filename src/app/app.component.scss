@@ -887,7 +887,7 @@ tbody tr:hover {
 .pivot-summary {
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 16px;
+  margin: 10px 0;
 }
 
 .batch-progress div,
@@ -1061,6 +1061,39 @@ tbody tr:hover {
 .mini-form {
   display: grid;
   gap: 12px;
+}
+
+.review-differences {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #ead7d7;
+  border-radius: 16px;
+  padding: 12px;
+  background: #fffafa;
+}
+
+.review-differences-head,
+.difference-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.difference-row {
+  grid-template-columns: minmax(120px, 1fr) minmax(180px, 1fr) auto;
+}
+
+.review-differences-head button,
+.difference-row button {
+  width: auto;
+  margin: 0;
+}
+
+.difference-total {
+  color: #7f1d1d;
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 
 .checkbox-line {
@@ -1247,6 +1280,8 @@ dd {
   .upload-grid,
   .claims-filter-bar,
   .company-filter-bar,
+  .review-differences-head,
+  .difference-row,
   .review-cheque-grid,
   .cheque-identity-grid,
   .cheque-bank-grid,

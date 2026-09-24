@@ -53,10 +53,16 @@ export class SalesClaimsService {
     return this.http.post<ClaimDto[]>(`${this.apiUrl}/claims/generate`, payload);
   }
 
-  getClaims(month: number, year: number): Observable<ClaimDto[]> {
-    const params = new HttpParams()
-      .set('month', month)
-      .set('year', year);
+  getClaims(month?: number | null, year?: number | null): Observable<ClaimDto[]> {
+    let params = new HttpParams();
+
+    if (month) {
+      params = params.set('month', month);
+    }
+
+    if (year) {
+      params = params.set('year', year);
+    }
 
     return this.http.get<ClaimDto[]>(`${this.apiUrl}/claims`, { params });
   }
@@ -146,9 +152,9 @@ export class SalesClaimsService {
 
 
   // inside SalesClaimsService
-getClaimDifferences(claimId: string): Observable<ClaimDifferencesResponse> {
-  return this.http.get<ClaimDifferencesResponse>(
-    `${this.apiUrl}/claims/${claimId}/reviews/differences`,
-  );
-}
+  getClaimDifferences(claimId: string): Observable<ClaimDifferencesResponse> {
+    return this.http.get<ClaimDifferencesResponse>(
+      `${this.apiUrl}/claims/${claimId}/reviews/differences`,
+    );
+  }
 }

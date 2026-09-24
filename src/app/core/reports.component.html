@@ -1,7 +1,7 @@
 <section class="reports-page" aria-labelledby="reportsTitle">
   <header class="reports-hero">
     <div>
-      <p class="eyebrow">التقارير المالية</p>
+      <!-- <p class="eyebrow">التقارير المالية</p> -->
       <h2 id="reportsTitle">نظرة مالية واضحة وسريعة</h2>
       <p class="hero-copy">
         تابع الأرصدة، أعمار الديون، أكبر المديونيات، والشيكات المستحقة من مكان واحد.
@@ -13,15 +13,40 @@
     </div>
   </header>
 
-  <section class="report-section summary-section" aria-labelledby="summaryHeading">
+  <app-report-period-filter
+    [value]="reportPeriodFilter()"
+    (filtersApplied)="applyReportPeriodFilter($event)"
+  ></app-report-period-filter>
+
+  <div class="reports-tab-view">
+    <nav class="reports-tabs" aria-label="أنواع التقارير" role="tablist">
+    <button
+      *ngFor="let tab of reportTabs"
+      type="button"
+      class="report-tab"
+      [class.active]="activeReportTab() === tab.key"
+      [attr.aria-selected]="activeReportTab() === tab.key"
+      role="tab"
+      (click)="selectReportTab(tab.key)"
+    >
+      {{ tab.label }}
+    </button>
+    </nav>
+
+  <section
+    class="report-section summary-section"
+    aria-labelledby="summaryHeading"
+    [hidden]="activeReportTab() !== 'total'"
+    role="tabpanel"
+  >
     <div class="section-head">
       <div>
         <span class="section-kicker">ملخص عام</span>
         <h3 id="summaryHeading" class="section-title">الأرصدة الرئيسية</h3>
       </div>
-      <button type="button" class="ghost-button compact-button" (click)="retryTotalBalance()">
+      <!-- <button type="button" class="ghost-button compact-button" (click)="retryTotalBalance()">
         تحديث الملخص
-      </button>
+      </button> -->
     </div>
 
     <div class="inline-loader" *ngIf="totalBalanceLoading()">
@@ -60,8 +85,13 @@
     </div>
   </section>
 
-  <div class="reports-grid">
-    <section class="report-section" aria-labelledby="companyBalanceHeading">
+  <div class="reports-grid" [hidden]="activeReportTab() !== 'company' && activeReportTab() !== 'aging'">
+    <section
+      class="report-section"
+      aria-labelledby="companyBalanceHeading"
+      [hidden]="activeReportTab() !== 'company'"
+      role="tabpanel"
+    >
       <div class="section-head">
         <div>
           <span class="section-kicker">حسب الشركة</span>
@@ -85,7 +115,7 @@
 
         <button
           type="button"
-          class="ghost-button"
+          class="company-clear-button"
           (click)="clearBalanceCompany()"
           [disabled]="!selectedBalanceCompany()"
         >
@@ -142,7 +172,12 @@
       </div>
     </section>
 
-    <section class="report-section" aria-labelledby="agingHeading">
+    <section
+      class="report-section"
+      aria-labelledby="agingHeading"
+      [hidden]="activeReportTab() !== 'aging'"
+      role="tabpanel"
+    >
       <div class="section-head">
         <div>
           <span class="section-kicker">أعمار الديون</span>
@@ -226,7 +261,12 @@
     </section>
   </div>
 
-  <section class="report-section" aria-labelledby="topDebtorsHeading">
+  <section
+    class="report-section"
+    aria-labelledby="topDebtorsHeading"
+    [hidden]="activeReportTab() !== 'debtors'"
+    role="tabpanel"
+  >
     <div class="section-head">
       <div>
         <span class="section-kicker">الأولوية في التحصيل</span>
@@ -240,7 +280,7 @@
             [ngModel]="topCount()"
             (ngModelChange)="setTopCount($event)"
           >
-            <option *ngFor="let option of topOptions" [ngValue]="option">{{ option }}</option>
+            <option *ngFor="let option of topOptions" [ngValue]="option">{{ formatInteger(option) }}</option>
           </select>
         </label>
       </div>
@@ -271,7 +311,7 @@
     </div>
 
     <div
-      class="table-wrap reports-table-wrap"
+      class="table-wrap reports-table-wrap debtors-table-wrap"
       *ngIf="!topDebtorsLoading() && !topDebtorsError() && topDebtors().length"
     >
       <table>
@@ -286,7 +326,7 @@
         </thead>
         <tbody>
           <tr *ngFor="let debtor of topDebtors(); let i = index">
-            <td><span class="rank-badge">{{ i + 1 }}</span></td>
+            <td><span class="rank-badge">{{ formatInteger(i + 1) }}</span></td>
             <td>
               <strong>{{ debtor.companyName }}</strong>
               <div class="debt-bar" aria-hidden="true">
@@ -302,7 +342,12 @@
     </div>
   </section>
 
-  <section class="report-section" aria-labelledby="upcomingHeading">
+  <section
+    class="report-section"
+    aria-labelledby="upcomingHeading"
+    [hidden]="activeReportTab() !== 'upcoming'"
+    role="tabpanel"
+  >
     <div class="section-head">
       <div>
         <span class="section-kicker">متابعة الشيكات</span>
@@ -316,7 +361,7 @@
             [ngModel]="upcomingDays()"
             (ngModelChange)="setUpcomingDays($event)"
           >
-            <option *ngFor="let option of daysOptions" [ngValue]="option">{{ option }} يوم</option>
+            <option *ngFor="let option of daysOptions" [ngValue]="option">{{ formatInteger(option) }} يوم</option>
           </select>
         </label>
       </div>
@@ -367,12 +412,12 @@
           <tr *ngFor="let cheque of upcomingDue()">
             <td><strong>{{ cheque.companyName }}</strong></td>
             <td>{{ cheque.departmentName || "-" }}</td>
-            <td dir="ltr">{{ cheque.chequeNumber || "-" }}</td>
+            <td>{{ cheque.chequeNumber ? formatArabicDigits(cheque.chequeNumber) : "-" }}</td>
             <td>{{ cheque.bankName || "-" }}</td>
             <td>{{ formatMoney(chequePaidAmount(cheque)) }}</td>
-            <td>{{ cheque.endDate | date: "mediumDate" }}</td>
+            <td>{{ formatReportDate(cheque.endDate) }}</td>
             <td>
-              <span class="days-pill">{{ daysRemaining(cheque.endDate) }} يوم</span>
+              <span class="days-pill">{{ formatInteger(daysRemaining(cheque.endDate)) }} يوم</span>
             </td>
             <td>{{ displayChequeStatus(cheque.status) }}</td>
           </tr>
@@ -380,4 +425,5 @@
       </table>
     </div>
   </section>
+  </div>
 </section>

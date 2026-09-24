@@ -12,7 +12,7 @@
     <div class="session" *ngIf="session() as currentSession">
       <span>{{ displayRole(currentSession.role) }}</span>
       <strong>{{
-        currentSession.pharmacyName || currentSession.userId
+        (currentSession.pharmacyName || currentSession.userId) | arabicDigits
       }}</strong>
       <button type="button" class="ghost-button" (click)="logout()">
         تسجيل الخروج
@@ -290,7 +290,7 @@
                   {{ user.isActive ? "نشط" : "غير نشط" }}
                 </span>
               </td>
-              <td>{{ user.createdAt | date: "mediumDate" }}</td>
+              <td>{{ user.createdAt | date: "mediumDate" | arabicDigits }}</td>
               <td>
                 <button
                   type="button"
@@ -398,16 +398,25 @@
         </form>
       </div>
 
-      <nav class="workflow-steps" aria-label="خطوات المطالبات">
+      <nav class="workflow-steps" aria-label="خطوات المطالبات" *ngIf="!isClaimsReviewer()">
         <ng-container *ngFor="let step of pharmacySteps; let index = index">
           <button
             *ngIf="canShowStep(step.key)"
             type="button"
             [class.active]="activePharmacyStep() === step.key"
-            [class.done]="index === 0 && companies().length > 0"
+            [class.done]="
+              (index === 0 && companies().length > 0) ||
+              (step.key === 'claims-summary' && hasClaimsSummaryData())
+            "
+            [disabled]="isStepDisabled(step.key)"
+            [attr.title]="
+              isStepDisabled(step.key)
+                ? 'طبّق الشهر والسنة في الخطوة الثالثة أولًا'
+                : null
+            "
             (click)="setPharmacyStep(step.key)"
           >
-            <span class="step-number">{{ index + 1 }}</span>
+            <span class="step-number">{{ index + 1 | arabicDigits }}</span>
             <strong>{{ step.label }}</strong>
             <small>{{ step.hint }}</small>
           </button>
@@ -558,13 +567,13 @@
             <tbody>
               <tr *ngFor="let company of companiesRespons()">
                 <td>{{ company.name }}</td>
-                <td>{{ company.discount }}%</td>
-                <td>{{ company.localDiscountPercentage }}%</td>
-                <td>{{ company.importedDiscountPercentage }}%</td>
-                <td>{{ company.taxPercentage }}%</td>
-                <td>{{ company.administrativeExpensesPercentage }}%</td>
-                <td>{{ company.chequeSettlementPeriodInDays }}</td>
-                <td>{{ company.createdAt | date: "mediumDate" }}</td>
+                <td>{{ company.discount | arabicDigits }}%</td>
+                <td>{{ company.localDiscountPercentage | arabicDigits }}%</td>
+                <td>{{ company.importedDiscountPercentage | arabicDigits }}%</td>
+                <td>{{ company.taxPercentage | arabicDigits }}%</td>
+                <td>{{ company.administrativeExpensesPercentage | arabicDigits }}%</td>
+                <td>{{ company.chequeSettlementPeriodInDays | arabicDigits }}</td>
+                <td>{{ company.createdAt | date: "mediumDate" | arabicDigits }}</td>
                 <td>
                   <div class="company-row-actions">
                     <button
@@ -665,7 +674,7 @@
           >
             السابق
           </button>
-          <span>صفحة {{ pageNumber() }} من {{ totalPages() }}</span>
+          <span>صفحة {{ pageNumber() | arabicDigits }} من {{ totalPages() | arabicDigits }}</span>
           <button
             type="button"
             class="ghost-button"
@@ -790,15 +799,15 @@
           <div class="batch-progress" *ngIf="batchDetails() as batch">
             <div>
               <span>إجمالي الصفوف</span>
-              <strong>{{ batch.totalRows }}</strong>
+              <strong>{{ batch.totalRows | arabicDigits }}</strong>
             </div>
             <div>
               <span>تمت معالجتها</span>
-              <strong>{{ batch.processedRows }}</strong>
+              <strong>{{ batch.processedRows | arabicDigits }}</strong>
             </div>
             <div>
               <span>فشلت</span>
-              <strong>{{ batch.failedRows }}</strong>
+              <strong>{{ batch.failedRows | arabicDigits }}</strong>
             </div>
           </div>
         </div>
@@ -818,15 +827,15 @@
           <div class="batch-progress" *ngIf="batch.status === 'Completed'">
             <div>
               <span>رقم العملية</span>
-              <strong dir="ltr">{{ batch.id }}</strong>
+              <strong dir="ltr">{{ batch.id | arabicDigits }}</strong>
             </div>
             <div>
               <span>تاريخ الرفع</span>
-              <strong>{{ batch.createdAt | date: "medium" }}</strong>
+              <strong>{{ batch.createdAt | date: "medium" | arabicDigits }}</strong>
             </div>
             <div *ngIf="batch.completedAt">
               <span>تاريخ الاكتمال</span>
-              <strong>{{ batch.completedAt | date: "medium" }}</strong>
+              <strong>{{ batch.completedAt | date: "medium" | arabicDigits }}</strong>
             </div>
           </div>
         </ng-container>
@@ -890,7 +899,7 @@
               type="button"
               class="ghost-button"
               (click)="generateClaims()"
-              [disabled]="loading()"
+              [disabled]="loading() || !hasClaimsSummaryData()"
             >
               إرسال المطالبات للمراجعة
             </button>
@@ -932,11 +941,11 @@
           <div class="pivot-summary" *ngIf="pivotData() as pivot">
             <div>
               <span>عدد الفروع</span>
-              <strong>{{ pivot.branches.length }}</strong>
+              <strong>{{ pivot.branches.length | arabicDigits }}</strong>
             </div>
             <div>
               <span>عدد الشركات</span>
-              <strong>{{ pivot.rows.length }}</strong>
+              <strong>{{ pivot.rows.length | arabicDigits }}</strong>
             </div>
             <div>
               <span>الإجمالي</span>
@@ -944,7 +953,11 @@
             </div>
           </div>
 
-          <div class="table-wrap pivot-table-wrap" *ngIf="pivotData() as pivot">
+          <div
+            class="table-wrap pivot-table-wrap"
+            *ngIf="pivotData() as pivot"
+            [hidden]="!pivot.rows.length"
+          >
             <table class="pivot-table">
               <thead>
                 <tr>
@@ -976,6 +989,13 @@
             </table>
           </div>
 
+          <div
+            class="empty-state"
+            *ngIf="pivotData() && !pivotData()!.rows.length && !pivotLoading()"
+          >
+            لا توجد داتا مطابقة لهذا الشهر أو السنة.
+          </div>
+
           <div class="empty-state" *ngIf="!pivotData() && !pivotLoading()">
             لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض
             الجداول أو إرفع ملف جديد
@@ -990,7 +1010,7 @@
             </article>
             <article>
               <span>عدد الروشتات</span>
-              <strong>{{ insights.prescriptionsCount }}</strong>
+              <strong>{{ insights.prescriptionsCount | arabicDigits }}</strong>
             </article>
             <article>
               <span>المتبقي</span>
@@ -1051,9 +1071,9 @@
                   name="companyProfilePageSize"
                   [(ngModel)]="companyProfileFilter.pageSize"
                 >
-                  <option [ngValue]="10">10</option>
-                  <option [ngValue]="20">20</option>
-                  <option [ngValue]="50">50</option>
+                  <option [ngValue]="10">{{ 10 | arabicDigits }}</option>
+                  <option [ngValue]="20">{{ 20 | arabicDigits }}</option>
+                  <option [ngValue]="50">{{ 50 | arabicDigits }}</option>
                 </select>
               </label>
               <button type="submit" [disabled]="companyProfileLoading()">
@@ -1099,7 +1119,7 @@
                 </thead>
                 <tbody>
                   <tr *ngFor="let row of profile.items">
-                    <td>{{ row.saleDate | date: "mediumDate" }}</td>
+                    <td>{{ row.saleDate | date: "mediumDate" | arabicDigits }}</td>
                     <td>{{ formatMoney(row.importedItemsTotal) }}</td>
                     <td>{{ formatMoney(row.localItemsTotal) }}</td>
                     <td>{{ formatMoney(row.grossTotal) }}</td>
@@ -1124,8 +1144,8 @@
                 السابق
               </button>
               <span>
-                صفحة {{ profile.pageNumber }} من {{ profileTotalPages(profile) }}
-                - الإجمالي {{ profile.totalCount }}
+                صفحة {{ profile.pageNumber | arabicDigits }} من {{ profileTotalPages(profile) | arabicDigits }}
+                - الإجمالي {{ profile.totalCount | arabicDigits }}
               </span>
               <button
                 type="button"
@@ -1146,14 +1166,14 @@
             type="button"
             class="ghost-button"
             (click)="downloadClaimsSummaryExcel()"
-            [disabled]="!pivotData() || pivotLoading()"
+            [disabled]="!hasClaimsSummaryData() || pivotLoading()"
           >
             تحميل Excel
           </button>
           <button
             type="button"
             (click)="setPharmacyStep('claims')"
-            [disabled]="!claims().length"
+            [disabled]="!hasClaimsSummaryData() || pivotLoading()"
           >
             التالي: مطالبات الشركات
           </button>
@@ -1223,11 +1243,11 @@
             <tbody>
               <tr *ngFor="let claim of claims()">
                 <td>{{ claim.companyName }}</td>
-                <td>{{ claim.month }}</td>
-                <td>{{ claim.year }}</td>
+                <td>{{ claim.month | arabicDigits }}</td>
+                <td>{{ claim.year | arabicDigits }}</td>
                 <td>{{ formatMoney(claim.claimAmount) }}</td>
                 <td>{{ formatMoney(claim.claimAmountAfterDiscount) }}</td>
-                <td>{{ claim.prescriptionsCount }}</td>
+                <td>{{ claim.prescriptionsCount | arabicDigits }}</td>
                 <td>
                   {{
                     claim.correctedAmount === null
@@ -1309,7 +1329,7 @@
                       class="text-button cheque-button"
                       (click)="prepareCheque(claim)"
                     >
-                      تجهيز الشيك
+                      تجهيز المطالبة
                     </button>
                   </div>
                 </td>
@@ -1453,7 +1473,7 @@
               </div>
               <div>
                 <span>عدد الروشتات الأصلي</span>
-                <strong>{{ claim.prescriptionsCount }}</strong>
+                <strong>{{ claim.prescriptionsCount | arabicDigits }}</strong>
               </div>
               <div>
                 <span>الحالة</span>
@@ -1496,22 +1516,63 @@
                     required
                   />
                 </label>
-                <label>
-                  نوع الاختلاف
-                  <select
-                    name="reviewerDiscrepancyType"
-                    [(ngModel)]="reviewForm.discrepancyType"
-                    required
+                <div class="review-differences">
+                  <div class="review-differences-head">
+                    <strong>الفروق</strong>
+                    <button
+                      type="button"
+                      class="ghost-button"
+                      (click)="addReviewDifference()"
+                    >
+                      إضافة فرق
+                    </button>
+                  </div>
+
+                  <div
+                    class="difference-row"
+                    *ngFor="let difference of reviewForm.differences; let i = index"
                   >
-                    <option [ngValue]="null" disabled>
-                      اختار نوع الاختلاف
-                    </option>
-                    <option value="ContractualDeduction">خصم تعاقدات</option>
-                    <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
-                    <option value="AccountingDeficit">خطأ محاسبي</option>
-                    <option value="Other">اخرى</option>
-                  </select>
-                </label>
+                    <label>
+                      قيمة الفرق
+                      <input
+                        type="number"
+                        [name]="'reviewerDifferenceValue' + i"
+                        [(ngModel)]="difference.value"
+                        min="0.01"
+                        step="0.01"
+                        required
+                      />
+                    </label>
+                    <label>
+                      سبب الفرق
+                      <select
+                        [name]="'reviewerDifferenceReason' + i"
+                        [(ngModel)]="difference.reason"
+                        required
+                      >
+                        <option
+                          *ngFor="let option of differenceReasonOptions"
+                          [value]="option.value"
+                        >
+                          {{ option.label }}
+                        </option>
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      class="ghost-button"
+                      (click)="removeReviewDifference(i)"
+                    >
+                      حذف
+                    </button>
+                  </div>
+
+                  <div class="difference-total">
+                    إجمالي الفروق: {{ formatMoney(reviewDifferencesTotal()) }}
+                    / المطلوب:
+                    {{ formatMoney(reviewExpectedDifference(claim)) }}
+                  </div>
+                </div>
               </ng-container>
 
               <label>
@@ -1542,7 +1603,7 @@
                 <ng-template #claimsInaccurateSummary>
                   المبلغ المصحح: {{ formatMoney(review.correctedAmount || 0) }}
                   — عدد الروشتات المصحح:
-                  {{ review.correctedPrescriptionsCount ?? "-" }}
+                  {{ (review.correctedPrescriptionsCount ?? "-") | arabicDigits }}
                 </ng-template>
               </ng-container>
             </div>
@@ -1557,6 +1618,9 @@
           >
             رجوع للملخص
           </button>
+          <button type="button" (click)="setPharmacyStep('claim-review')">
+            التالي: مراجعة المطالبة
+          </button>
         </div>
       </section>
 
@@ -1567,133 +1631,18 @@
         <div class="step-heading">
           <div class="title">
             <p class="eyebrow">الخطوة الخامسة</p>
-            <h3>مراجعة المطالبة وتجهيز الشيكات</h3>
-          </div>
-          <div class="actions">
-            <button
-              type="button"
-              class="ghost-button"
-              (click)="loadUpcomingCheques()"
-            >
-              الشيكات المستحقة قريبًا
-            </button>
+            <h3>مراجعة المطالبة</h3>
           </div>
         </div>
 
         <div class="review-cheque-grid">
-          <section
-            class="mini-panel"
-            *ngIf="isClaimsReviewer() && selectedClaim() as claim"
-          >
-            <p class="eyebrow">تفاصيل المطالبة</p>
-            <h3>{{ claim.companyName }}</h3>
-            <div class="batch-progress review-summary">
-              <div>
-                <span>المبلغ قبل الخصم</span>
-                <strong>{{ formatMoney(claim.claimAmount) }}</strong>
-              </div>
-              <div>
-                <span>المبلغ بعد الخصم</span
-                ><strong>{{
-                  formatMoney(claim.claimAmountAfterDiscount)
-                }}</strong>
-              </div>
-              <div>
-                <span>عدد الروشتات الأصلي</span>
-                <strong>{{ claim.prescriptionsCount }}</strong>
-              </div>
-              <div>
-                <span>الحالة</span><strong>{{ claim.status }}</strong>
-              </div>
-            </div>
-            <form class="mini-form" (ngSubmit)="saveClaimReview()">
-              <label class="checkbox-line">
-                <input
-                  type="checkbox"
-                  name="isAccurate"
-                  [ngModel]="reviewForm.isAccurate"
-                  (ngModelChange)="onReviewAccuracyChange($event)"
-                />
-                المطالبة صحيحة
-              </label>
-
-              <ng-container *ngIf="!reviewForm.isAccurate">
-                <label>
-                  المبلغ المصحح
-                  <input
-                    type="number"
-                    name="correctedAmount"
-                    [(ngModel)]="reviewForm.correctedAmount"
-                    required
-                  />
-                </label>
-                <label>
-                  عدد الروشتات المصحح
-                  <input
-                    type="number"
-                    name="correctedPrescriptionsCount"
-                    [(ngModel)]="reviewForm.correctedPrescriptionsCount"
-                    min="0"
-                    step="1"
-                    required
-                  />
-                </label>
-                <label>
-                  نوع الاختلاف
-                  <select
-                    name="discrepancyType"
-                    [(ngModel)]="reviewForm.discrepancyType"
-                    required
-                  >
-                    <option [ngValue]="null" disabled>
-                      اختار نوع الاختلاف
-                    </option>
-                    <option value="ContractualDeduction">خصم تعاقدات</option>
-                    <option value="DeferredToNextMonth">مؤجل لشهر قادم</option>
-                    <option value="AccountingDeficit">خطأ محاسبي</option>
-                    <option value="Other">اخرى</option>
-                  </select>
-                </label>
-              </ng-container>
-
-              <label>
-                ملاحظات
-                <textarea
-                  name="reviewNotes"
-                  [(ngModel)]="reviewForm.notes"
-                ></textarea>
-              </label>
-
-              <div class="form-error" *ngIf="reviewFormError()">
-                {{ reviewFormError() }}
-              </div>
-
-              <button type="submit" [disabled]="loading()">حفظ المراجعة</button>
-            </form>
-            <div class="saved-review" *ngIf="selectedClaimReview() as review">
-              <ng-container
-                *ngIf="review.isAccurate; else reviewInaccurateSummary"
-              >
-                آخر مراجعة: تم اعتماد القيم المُولّدة كما هي.
-              </ng-container>
-              <ng-template #reviewInaccurateSummary>
-                آخر مراجعة — المبلغ المصحح:
-                {{ formatMoney(review.correctedAmount || 0) }}، عدد الروشتات
-                المصحح: {{ review.correctedPrescriptionsCount ?? "-" }}
-                <ng-container *ngIf="review.notes">
-                  ({{ review.notes }})
-                </ng-container>
-              </ng-template>
-            </div>
-          </section>
-
           <section
             class="mini-panel cheque-main-panel"
             *ngIf="isPharmacy() && preparedCheque()"
           >
             <div class="step-heading">
               <div class="title">
-                <h3>تجهيز وإنشاء الشيكات</h3>
+                <h3>تجهيز المطالبة</h3>
               </div>
             </div>
             <div class="prepared-cheque" *ngIf="preparedCheque() as prepared">
@@ -1707,7 +1656,7 @@
                   <input
                     type="text"
                     name="settlementPeriod"
-                    [value]="prepared.settlementDays + ' يوم'"
+                    [value]="(prepared.settlementDays | arabicDigits) + ' يوم'"
                     readonly
                   />
                 </label>
@@ -1813,20 +1762,68 @@
                 (click)="createCheques()"
                 [disabled]="loading()"
               >
-                إنشاء الشيك
+                إنشاء مطالبة
               </button>
             </div>
           </section>
 
-          <div class="empty-state" *ngIf="!claimsLoading() && !claims().length">
-            لا توجد بيانات معروضة بعد. اختار شهر و سنة من الخطوة الثالثة لعرض
-            الجداول أو إرفع ملف جديد
+          <div
+            class="empty-state"
+            *ngIf="isPharmacy() && !preparedCheque()"
+          >
+            اختر «تجهيز المطالبة» من الخطوة الرابعة لعرض فورم التجهيز.
+          </div>
+        </div>
+        <div class="step-actions" *ngIf="isPharmacy()">
+          <button
+            type="button"
+            class="ghost-button"
+            (click)="setPharmacyStep('claims')"
+          >
+            رجوع للمطالبات
+          </button>
+          <button type="button" (click)="setPharmacyStep('cheques')">
+            التالي: الشيكات
+          </button>
+        </div>
+      </section>
+
+      <section
+        class="workflow-step-panel"
+        *ngIf="isPharmacy() && activePharmacyStep() === 'cheques'"
+      >
+        <div class="step-heading">
+          <div class="title">
+            <p class="eyebrow">الخطوة السادسة</p>
+            <h3>الشيكات</h3>
+          </div>
+          <div class="actions">
+            <button
+              type="button"
+              class="ghost-button"
+              (click)="loadUpcomingCheques()"
+            >
+              الشيكات المستحقة قريبًا
+            </button>
+          </div>
+        </div>
+
+        <div class="processing-card" *ngIf="chequesLoading()">
+          جاري تحميل كل المطالبات الموجودة...
+        </div>
+
+        <div class="review-cheque-grid">
+          <div
+            class="empty-state"
+            *ngIf="!chequesLoading() && !cheques().length"
+          >
+            لا توجد مطالبات موجودة حاليًا.
           </div>
         </div>
 
         <div
           class="table-wrap"
-          *ngIf="isPharmacy() && displayedCheques().length"
+          *ngIf="isPharmacy() && !chequesLoading() && cheques().length"
         >
           <table>
             <thead>
@@ -1852,9 +1849,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let cheque of displayedCheques()">
+              <tr *ngFor="let cheque of cheques()">
                 <td>{{ cheque.companyName }}</td>
-                <td dir="ltr">{{ cheque.chequeNumber || "-" }}</td>
+                <td dir="ltr">{{ (cheque.chequeNumber || "-") | arabicDigits }}</td>
                 <td>{{ cheque.bankName || "-" }}</td>
                 <td>{{ cheque.departmentName || "-" }}</td>
                 <td>{{ formatMoney(chequeFinancialAmount(cheque, "amountBeforeDiscount")) }}</td>
@@ -1873,8 +1870,8 @@
                     {{ displayPaymentDifferenceType(cheque.paymentDifferenceType) }}
                   </span>
                 </td>
-                <td>{{ cheque.startDate | date: "mediumDate" }}</td>
-                <td>{{ cheque.endDate | date: "mediumDate" }}</td>
+                <td>{{ cheque.startDate | date: "mediumDate" | arabicDigits }}</td>
+                <td>{{ cheque.endDate | date: "mediumDate" | arabicDigits }}</td>
                 <td>{{ displayChequeStatus(cheque.status) }}</td>
                 <td>
                   {{
@@ -1935,12 +1932,12 @@
                 <tbody>
                   <tr *ngFor="let cheque of upcomingCheques()">
                     <td>{{ cheque.companyName }}</td>
-                    <td dir="ltr">{{ cheque.chequeNumber || "-" }}</td>
+                    <td dir="ltr">{{ (cheque.chequeNumber || "-") | arabicDigits }}</td>
                     <td>{{ cheque.bankName || "-" }}</td>
                     <td>{{ formatMoney(chequePaidAmount(cheque)) }}</td>
                     <td>{{ formatMoney(chequeFinancialAmount(cheque, "finalAmount")) }}</td>
                     <td>{{ formatMoney(chequeFinancialAmount(cheque, "paymentDifference")) }}</td>
-                    <td>{{ cheque.endDate | date: "mediumDate" }}</td>
+                    <td>{{ cheque.endDate | date: "mediumDate" | arabicDigits }}</td>
                     <td>{{ displayChequeStatus(cheque.status) }}</td>
                   </tr>
                 </tbody>
@@ -2019,9 +2016,9 @@
           <button
             type="button"
             class="ghost-button"
-            (click)="setPharmacyStep('claims')"
+            (click)="setPharmacyStep('claim-review')"
           >
-            رجوع للمطالبات
+            رجوع لمراجعة المطالبة
           </button>
         </div>
       </section>
@@ -2046,7 +2043,7 @@
         >
           شركة أوبشن لتطوير البرمجيات
         </a>
-        © {{ currentYear() }}
+        © {{ currentYear() | arabicDigits }}
       </p>
       <p class="mt-8 text-center text-sm font-medium text-slate-400">
         Software Version 2.9.8

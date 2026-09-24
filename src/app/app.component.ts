@@ -31,7 +31,9 @@ import {
   DifferenceReason,
   DifferenceType,
   PaymentDifferenceType,
+  ClaimReviewDifferenceRequest,
 } from "./core/api.models";
+import { ArabicDigitsPipe } from "./core/arabic-digits.pipe";
 import { AuthService } from "./core/auth.service";
 import { CompaniesService } from "./core/companies.service";
 import { ReportsComponent } from "./core/reports.component";
@@ -44,12 +46,13 @@ type PharmacyStep =
   | "claims-summary"
   | "claims"
   | "claim-review"
+  | "cheques"
   | "reports";
 
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CommonModule, FormsModule, ReportsComponent],
+  imports: [CommonModule, FormsModule, ReportsComponent, ArabicDigitsPipe],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.scss",
 })
@@ -100,6 +103,7 @@ export class AppComponent {
   readonly uploadResult = signal<SalesBatchUploadResponse | null>(null);
   readonly batchDetails = signal<SalesBatchStatus | null>(null);
   readonly pivotData = signal<ClaimsPivotResponse | null>(null);
+  readonly appliedClaimsPeriod = signal<{ month: number; year: number } | null>(null);
   readonly claims = signal<ClaimDto[]>([]);
   readonly companyInsights = signal<CompanyInsightsResponse | null>(null);
   readonly companyProfile = signal<PagedResponse<CompanyProfileRow> | null>(null);
@@ -116,6 +120,7 @@ export class AppComponent {
   readonly selectedChequeForStatus = signal<ChequeDto | null>(null);
   readonly pivotLoading = signal(false);
   readonly claimsLoading = signal(false);
+  readonly chequesLoading = signal(false);
   readonly batchPolling = signal(false);
   readonly uploadProgress = signal(0);
   readonly activePharmacyStep = signal<PharmacyStep>("companies");
@@ -224,7 +229,12 @@ export class AppComponent {
       {
         key: "claim-review",
         label: "مراجعة المطالبة",
-        hint: "المطالبة والشيكات",
+        hint: "مراجعة وتجهيز المطالبة",
+      },
+      {
+        key: "cheques",
+        label: "الشيكات",
+        hint: "تجهيز ومتابعة الشيكات",
       },
       {
         key: "reports",
@@ -239,8 +249,8 @@ export class AppComponent {
   };
 
   claimsFilter = {
-    month: new Date().getMonth() + 1,
-    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1 as number | null,
+    year: new Date().getFullYear() as number | null,
     companyName: "",
   };
 
@@ -288,6 +298,14 @@ export class AppComponent {
   departmentForm: CreateDepartmentRequest = {
     name: "",
   };
+
+  readonly differenceReasonOptions: { value: DifferenceReason; label: string }[] =
+    [
+      { value: "ContractualDeduction", label: "خصم تعاقدات" },
+      { value: "DeferredToNextMonth", label: "مؤجل لشهر قادم" },
+      { value: "AccountingDeficit", label: "عجز محاسبي" },
+      { value: "Other", label: "أخرى" },
+    ];
 
   login(): void {
     this.withLoading(this.authService.login(this.loginForm)).subscribe({
@@ -425,7 +443,38 @@ export class AppComponent {
     return this.isPharmacy() || step === "claims";
   }
 
+  isStepDisabled(step: PharmacyStep): boolean {
+    return (
+      this.isPharmacy() &&
+      (step === "claims" || step === "claim-review") &&
+      !this.hasClaimsSummaryData()
+    );
+  }
+
+  hasClaimsSummaryData(): boolean {
+    const pivot = this.pivotData();
+    const appliedPeriod = this.appliedClaimsPeriod();
+
+    return Boolean(
+      pivot?.rows.length &&
+        appliedPeriod &&
+        appliedPeriod.month === Number(this.claimsFilter.month) &&
+        appliedPeriod.year === Number(this.claimsFilter.year),
+    );
+  }
+
   setPharmacyStep(step: PharmacyStep): void {
+    if (this.isStepDisabled(step)) {
+      this.message.set(
+        "لا يمكن استكمال الخطوات قبل تطبيق الشهر والسنة وظهور بيانات في ملخص الشركات.",
+      );
+      return;
+    }
+
+    if (step === "cheques" && this.isPharmacy()) {
+      this.loadCheques(true);
+    }
+
     this.activePharmacyStep.set(step);
   }
 
@@ -435,6 +484,7 @@ export class AppComponent {
     this.uploadResult.set(null);
     this.batchDetails.set(null);
     this.pivotData.set(null);
+    this.appliedClaimsPeriod.set(null);
     this.claims.set([]);
     this.uploadProgress.set(input.files?.[0] ? 15 : 0);
   }
@@ -509,13 +559,18 @@ export class AppComponent {
     this.preparedCheque.set(null);
     this.selectedClaim.set(null);
     this.selectedClaimReview.set(null);
-    this.loadClaimsPivot();
+    this.pivotData.set(null);
+    this.appliedClaimsPeriod.set(null);
+    if (this.claimPeriodOrMessage()) {
+      this.loadClaimsPivot();
+    }
     this.loadClaims();
     this.loadCheques();
   }
 
   applyCompanyFilter(): void {
     this.appliedCompanyName.set(this.claimsFilter.companyName.trim());
+    this.preparedCheque.set(null);
     this.companyProfileFilter.month = this.claimsFilter.month;
     this.companyProfileFilter.year = this.claimsFilter.year;
     this.companyProfileFilter.pageNumber = 1;
@@ -524,7 +579,6 @@ export class AppComponent {
     if (this.claimsFilter.companyName.trim()) {
       this.loadCompanyInsights();
       this.loadCompanyProfile();
-      this.prepareCheque();
       this.loadCheques();
       return;
     }
@@ -581,16 +635,22 @@ export class AppComponent {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `ملخص-الشركات-${this.claimsFilter.month}-${this.claimsFilter.year}.xls`;
+    link.download = `ملخص-الشركات-${this.claimsFilter.month ?? "all"}-${this.claimsFilter.year ?? "all"}.xls`;
     link.click();
     URL.revokeObjectURL(url);
   }
 
   generateClaims(): void {
+    const period = this.claimPeriodOrMessage();
+
+    if (!period) {
+      return;
+    }
+
     this.withLoading(
       this.salesClaimsService.generateClaims({
-        month: this.claimsFilter.month,
-        year: this.claimsFilter.year,
+        month: period.month,
+        year: period.year,
       }),
     ).subscribe({
       next: (claims) => {
@@ -603,13 +663,28 @@ export class AppComponent {
   }
 
   loadClaimsPivot(): void {
+    const period = this.claimPeriodOrMessage();
+
+    if (!period) {
+      return;
+    }
+
     this.pivotLoading.set(true);
+    this.pivotData.set(null);
+    this.appliedClaimsPeriod.set(null);
     this.salesClaimsService
-      .getClaimsPivot(this.claimsFilter.month, this.claimsFilter.year)
+      .getClaimsPivot(period.month, period.year)
       .pipe(finalize(() => this.pivotLoading.set(false)))
       .subscribe({
-        next: (pivot) => this.pivotData.set(pivot),
-        error: (error) => this.showError(error),
+        next: (pivot) => {
+          this.pivotData.set(pivot);
+          this.appliedClaimsPeriod.set({ month: period.month, year: period.year });
+        },
+        error: (error) => {
+          this.pivotData.set(null);
+          this.appliedClaimsPeriod.set(null);
+          this.showError(error);
+        },
       });
   }
 
@@ -635,8 +710,9 @@ export class AppComponent {
 
   loadCompanyInsights(): void {
     const companyName = this.claimsFilter.companyName.trim();
+    const period = this.claimPeriodOrMessage();
 
-    if (!companyName) {
+    if (!companyName || !period) {
       this.companyInsights.set(null);
       return;
     }
@@ -644,8 +720,8 @@ export class AppComponent {
     this.salesClaimsService
       .getCompanyInsights(
         companyName,
-        this.claimsFilter.month,
-        this.claimsFilter.year,
+        period.month,
+        period.year,
       )
       .subscribe({
         next: (insights) => this.companyInsights.set(insights),
@@ -654,6 +730,22 @@ export class AppComponent {
   }
 
   selectClaim(claim: ClaimDto): void {
+    if (this.isClaimsReviewer()) {
+      this.selectedClaim.set(claim);
+      this.reviewFormError.set("");
+      this.selectedClaimReview.set(null);
+      this.reviewForm = {
+        isAccurate: false,
+        correctedAmount: claim.correctedAmount ?? claim.claimAmountAfterDiscount,
+        correctedPrescriptionsCount:
+          claim.correctedPrescriptionsCount ?? claim.prescriptionsCount,
+        differences: this.defaultDifferencesForClaim(claim),
+        notes: "",
+      };
+      this.loadClaimReview(claim.id);
+      return;
+    }
+
     const wasAlreadyPending = claim.status === "Pending";
     const pendingClaim: ClaimDto = {
       ...claim,
@@ -675,7 +767,7 @@ export class AppComponent {
       correctedPrescriptionsCount:
         pendingClaim.correctedPrescriptionsCount ??
         pendingClaim.prescriptionsCount,
-      discrepancyType: null,
+      differences: this.defaultDifferencesForClaim(pendingClaim),
       notes: "",
     };
 
@@ -707,15 +799,25 @@ export class AppComponent {
     if (isAccurate) {
       this.reviewForm.correctedAmount = null;
       this.reviewForm.correctedPrescriptionsCount = null;
-      this.reviewForm.discrepancyType = null;
+      this.reviewForm.differences = [];
     }
   }
 
   saveClaimReview(): void {
     const claim = this.selectedClaim();
 
+    if (!this.isClaimsReviewer()) {
+      this.message.set("مراجعة المطالبات متاحة لمراجع المطالبات فقط.");
+      return;
+    }
+
     if (!claim) {
       this.message.set("اختار مطالبة الأول.");
+      return;
+    }
+
+    if (claim.status === "Reviewed" || this.selectedClaimReview()) {
+      this.reviewFormError.set("تمت مراجعة هذه المطالبة بالفعل.");
       return;
     }
 
@@ -730,11 +832,9 @@ export class AppComponent {
 
     const reviewPayload = this.buildReviewPayload();
 
-    const request$ = this.editingClaimReview()
-      ? this.salesClaimsService.updateClaimReview(claim.id, reviewPayload)
-      : this.salesClaimsService.saveClaimReview(claim.id, reviewPayload);
-
-    this.withLoading(request$).subscribe({
+    this.withLoading(
+      this.salesClaimsService.saveClaimReview(claim.id, reviewPayload),
+    ).subscribe({
       next: (review) => {
         this.selectedClaimReview.set(review);
         const reviewedClaim: ClaimDto = {
@@ -742,22 +842,31 @@ export class AppComponent {
           status: "Reviewed",
           correctedAmount: review.correctedAmount,
           correctedPrescriptionsCount: review.correctedPrescriptionsCount,
-          discrepancyType: review.discrepancyType,
+          discrepancyType: review.differences[0]?.reason ?? null,
           notes: review.notes,
         };
         this.selectedClaim.set(reviewedClaim);
-        this.claims.update((claims) =>
-          claims.map((currentClaim) =>
-            currentClaim.id === reviewedClaim.id ? reviewedClaim : currentClaim,
-          ),
-        );
         this.message.set("تم حفظ مراجعة المطالبة.");
         this.editingClaimReview.set(false);
-        if (this.isPharmacy()) {
-          this.loadClaims();
-        }
+        this.loadClaims();
       },
-      error: (error) => this.showError(error),
+      error: (error: HttpErrorResponse) => {
+        const message = this.extractBackendErrorMessage(error);
+
+        const duplicateReview =
+          message.toLowerCase().includes("already") ||
+          message.includes("بالفعل") ||
+          message.includes("موجود");
+
+        if (error.status === 400 && duplicateReview) {
+          this.reviewFormError.set("تمت مراجعة هذه المطالبة بالفعل.");
+          this.loadClaimReview(claim.id);
+          this.loadClaims();
+          return;
+        }
+
+        this.showError(error);
+      },
     });
   }
 
@@ -770,7 +879,7 @@ export class AppComponent {
       correctedAmount: claim.correctedAmount ?? claim.claimAmountAfterDiscount,
       correctedPrescriptionsCount:
         claim.correctedPrescriptionsCount ?? claim.prescriptionsCount,
-      discrepancyType: null,
+      differences: this.defaultDifferencesForClaim(claim),
       notes: "",
     };
     this.loadClaimReview(claim.id);
@@ -788,7 +897,7 @@ export class AppComponent {
           isAccurate: review.isAccurate,
           correctedAmount: review.correctedAmount,
           correctedPrescriptionsCount: review.correctedPrescriptionsCount,
-          discrepancyType: review.discrepancyType,
+          differences: review.differences ?? [],
           notes: review.notes,
         };
       },
@@ -813,6 +922,36 @@ export class AppComponent {
     return claim.correctedPrescriptionsCount ?? claim.prescriptionsCount;
   }
 
+  addReviewDifference(): void {
+    this.reviewForm.differences = [
+      ...this.reviewForm.differences,
+      { value: 0, reason: "Other" },
+    ];
+  }
+
+  removeReviewDifference(index: number): void {
+    this.reviewForm.differences = this.reviewForm.differences.filter(
+      (_, currentIndex) => currentIndex !== index,
+    );
+  }
+
+  reviewDifferencesTotal(): number {
+    return this.reviewForm.differences.reduce(
+      (sum, difference) => sum + Number(difference.value || 0),
+      0,
+    );
+  }
+
+  reviewExpectedDifference(claim = this.selectedClaim()): number {
+    const correctedAmount = this.reviewForm.correctedAmount;
+
+    if (correctedAmount === null || correctedAmount === undefined || !claim) {
+      return 0;
+    }
+
+    return Math.abs(Number(correctedAmount) - claim.claimAmount);
+  }
+
   prepareCheque(claim?: ClaimDto): void {
     const companyName =
       claim?.companyName.trim() || this.claimsFilter.companyName.trim();
@@ -824,22 +963,28 @@ export class AppComponent {
     }
 
     if (!companyName) {
-      this.message.set("اكتب اسم الشركة لتجهيز الشيك.");
+      this.message.set("اختر مطالبة لتجهيزها.");
+      return;
+    }
+
+    const period = this.claimPeriodOrMessage();
+
+    if (!period) {
       return;
     }
 
     this.withLoading(
       this.salesClaimsService.prepareCheque(
         companyName,
-        this.claimsFilter.month,
-        this.claimsFilter.year,
+        period.month,
+        period.year,
       ),
     ).subscribe({
       next: (prepared) => {
         this.preparedCheque.set(prepared);
         this.chequeForm.allocations = this.createDefaultAllocations(prepared);
         this.activePharmacyStep.set("claim-review");
-        this.message.set("تم تجهيز بيانات الشيك بنجاح.");
+        this.message.set("تم تجهيز بيانات المطالبة بنجاح.");
       },
       error: (error) => this.showError(error),
     });
@@ -849,7 +994,7 @@ export class AppComponent {
     const prepared = this.preparedCheque();
 
     if (!prepared) {
-      this.message.set("جهّز الشيك الأول.");
+      this.message.set("جهّز المطالبة أولًا.");
       return;
     }
 
@@ -897,6 +1042,7 @@ export class AppComponent {
             : [...claimIds, prepared.claimId],
         );
         this.preparedCheque.set(null);
+        this.setPharmacyStep("cheques");
         this.message.set("تم إنشاء الشيكات.");
       },
       error: (error) => this.showError(error),
@@ -912,13 +1058,16 @@ export class AppComponent {
     );
   }
 
-  loadCheques(): void {
+  loadCheques(loadAll = false): void {
+    this.chequesLoading.set(true);
+    this.cheques.set([]);
     this.salesClaimsService
       .getCheques(
-        this.claimsFilter.companyName.trim() || undefined,
-        this.claimsFilter.month,
-        this.claimsFilter.year,
+        loadAll ? undefined : this.claimsFilter.companyName.trim() || undefined,
+        loadAll ? undefined : this.claimsFilter.month ?? undefined,
+        loadAll ? undefined : this.claimsFilter.year ?? undefined,
       )
+      .pipe(finalize(() => this.chequesLoading.set(false)))
       .subscribe({
         next: (cheques) => this.cheques.set(cheques),
         error: (error) => this.showError(error),
@@ -1157,12 +1306,15 @@ export class AppComponent {
   }
 
   private showError(error: HttpErrorResponse): void {
+    this.message.set(this.extractBackendErrorMessage(error));
+  }
+
+  private extractBackendErrorMessage(error: HttpErrorResponse): string {
     const errors = error.error?.errors;
-    this.message.set(
-      Array.isArray(errors)
-        ? errors.join(" ")
-        : "فشل الطلب. تأكد من اتصال الـ API وحاول مرة أخرى.",
-    );
+
+    return Array.isArray(errors)
+      ? errors.join(" ")
+      : "فشل الطلب. تأكد من اتصال الـ API وحاول مرة أخرى.";
   }
 
   private emptyCompanyForm(): CompanyRequest {
@@ -1182,15 +1334,41 @@ export class AppComponent {
       isAccurate: false,
       correctedAmount: null,
       correctedPrescriptionsCount: null,
-      discrepancyType: null,
+      differences: [],
       notes: "",
     };
   }
 
+  private defaultDifferencesForClaim(claim: ClaimDto): ClaimReviewDifferenceRequest[] {
+    const difference = Math.abs(
+      (claim.correctedAmount ?? claim.claimAmountAfterDiscount) - claim.claimAmount,
+    );
+
+    if (difference <= 0.01) {
+      return [];
+    }
+
+    return [{ value: Number(difference.toFixed(2)), reason: "Other" }];
+  }
+
+  private claimPeriodOrMessage(): { month: number; year: number } | null {
+    const month = this.normalizeMonth(this.claimsFilter.month);
+    const year = this.normalizeYear(this.claimsFilter.year);
+
+    if (!month || !year) {
+      this.message.set("اختار الشهر والسنة أولًا.");
+      return null;
+    }
+
+    this.claimsFilter.month = month;
+    this.claimsFilter.year = year;
+    return { month, year };
+  }
+
   /**
    * Builds the payload actually sent to the API: when the claim is marked
-   * accurate, both corrected values and the discrepancy type are forced to
-   * null regardless of whatever is left in the form fields.
+   * accurate, corrected values are forced to null and differences to an empty
+   * array regardless of whatever is left in the form fields.
    */
   private buildReviewPayload(): ClaimReviewRequest {
     const isAccurate = this.reviewForm.isAccurate === true;
@@ -1201,7 +1379,12 @@ export class AppComponent {
       correctedPrescriptionsCount: isAccurate
         ? null
         : this.reviewForm.correctedPrescriptionsCount,
-      discrepancyType: isAccurate ? null : this.reviewForm.discrepancyType,
+      differences: isAccurate
+        ? []
+        : this.reviewForm.differences.map((difference) => ({
+            value: Number(difference.value),
+            reason: difference.reason,
+          })),
       notes: this.reviewForm.notes,
     };
   }
@@ -1234,11 +1417,45 @@ export class AppComponent {
       return "عدد الروشتات المصحح يجب أن يكون رقمًا صحيحًا أكبر من أو يساوي صفر.";
     }
 
-    if (!this.reviewForm.discrepancyType) {
-      return "اختار نوع الاختلاف.";
+    if (this.reviewForm.correctedAmount < 0) {
+      return "المبلغ المصحح يجب أن يكون أكبر من أو يساوي صفر.";
+    }
+
+    const differences = this.reviewForm.differences;
+
+    if (!differences.length) {
+      return "أضف فرقًا واحدًا على الأقل.";
+    }
+
+    if (differences.some((difference) => Number(difference.value) <= 0)) {
+      return "كل قيمة فرق يجب أن تكون أكبر من صفر.";
+    }
+
+    const differenceTotal = differences.reduce(
+      (sum, difference) => sum + Number(difference.value || 0),
+      0,
+    );
+    const expectedDifference = Math.abs(
+      this.reviewForm.correctedAmount - (this.selectedClaim()?.claimAmount ?? 0),
+    );
+
+    if (Math.abs(differenceTotal - expectedDifference) > 0.01) {
+      return `إجمالي الفروق يجب أن يساوي ${this.formatMoney(expectedDifference)}.`;
     }
 
     return null;
+  }
+
+  private normalizeMonth(value: number | null | undefined): number | null {
+    const month = Number(value);
+
+    return Number.isInteger(month) && month >= 1 && month <= 12 ? month : null;
+  }
+
+  private normalizeYear(value: number | null | undefined): number | null {
+    const year = Number(value);
+
+    return Number.isInteger(year) && year > 0 ? year : null;
   }
 
   currentYear(): number {
@@ -1299,7 +1516,7 @@ export class AppComponent {
       return "-";
     }
 
-    const formattedValue = new Intl.NumberFormat("en-US", {
+    const formattedValue = new Intl.NumberFormat("ar-EG-u-nu-arab", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -1312,7 +1529,7 @@ export class AppComponent {
       return "-";
     }
 
-    return `${new Intl.NumberFormat("en-US", {
+    return `${new Intl.NumberFormat("ar-EG-u-nu-arab", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value)}%`;
@@ -1375,6 +1592,7 @@ export class AppComponent {
     this.uploadResult.set(null);
     this.batchDetails.set(null);
     this.pivotData.set(null);
+    this.appliedClaimsPeriod.set(null);
     this.claims.set([]);
     this.companyInsights.set(null);
     this.selectedClaim.set(null);
@@ -1469,6 +1687,21 @@ export class AppComponent {
       return;
     }
 
+    const month = this.normalizeMonth(this.companyProfileFilter.month);
+    const year = this.normalizeYear(this.companyProfileFilter.year);
+
+    if (this.companyProfileFilter.month && !month) {
+      this.companyProfileError.set("الشهر يجب أن يكون رقمًا من 1 إلى 12.");
+      return;
+    }
+
+    if (this.companyProfileFilter.year && !year) {
+      this.companyProfileError.set("السنة يجب أن تكون رقمًا صحيحًا.");
+      return;
+    }
+
+    this.companyProfileFilter.month = month;
+    this.companyProfileFilter.year = year;
     this.companyProfileFilter.pageNumber = pageNumber;
     this.companyProfileLoading.set(true);
     this.companyProfileError.set("");
@@ -1476,8 +1709,8 @@ export class AppComponent {
     this.salesClaimsService
       .getCompanyProfile(
         companyName,
-        this.companyProfileFilter.month || null,
-        this.companyProfileFilter.year || null,
+        month,
+        year,
         this.companyProfileFilter.pageNumber,
         this.companyProfileFilter.pageSize,
       )
