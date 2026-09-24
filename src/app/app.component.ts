@@ -2,7 +2,7 @@ import { CommonModule } from "@angular/common";
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, computed, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { Observable, finalize } from "rxjs";
+import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from "rxjs";
 
 import {
   ChequeAllocation,
@@ -10,6 +10,7 @@ import {
   ChequePrepareResponse,
   ClaimDifferencesResponse,
   ClaimDto,
+  ClaimReviewComparison,
   ClaimReviewRequest,
   ClaimReviewResponse,
   ClaimsPivotResponse,
@@ -34,6 +35,12 @@ import {
   ClaimReviewDifferenceRequest,
 } from "./core/api.models";
 import { ArabicDigitsPipe } from "./core/arabic-digits.pipe";
+import { ArabicNumberInputDirective } from "./core/arabic-number-input.directive";
+import { ClaimReviewComparisonComponent } from "./core/claim-review-comparison.component";
+import {
+  ClaimReviewComparisonTranslationKey,
+  claimReviewComparisonTranslation,
+} from "./core/claim-review-comparison.translations";
 import { AuthService } from "./core/auth.service";
 import { CompaniesService } from "./core/companies.service";
 import { LoadingOverlayComponent } from "./core/loading-overlay.component";
@@ -53,7 +60,15 @@ type PharmacyStep =
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CommonModule, FormsModule, ReportsComponent, ArabicDigitsPipe, LoadingOverlayComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReportsComponent,
+    ArabicDigitsPipe,
+    ArabicNumberInputDirective,
+    ClaimReviewComparisonComponent,
+    LoadingOverlayComponent,
+  ],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.scss",
 })
@@ -112,6 +127,7 @@ export class AppComponent {
   readonly companyProfileError = signal("");
   readonly selectedClaim = signal<ClaimDto | null>(null);
   readonly selectedClaimReview = signal<ClaimReviewResponse | null>(null);
+  readonly claimReviewComparisons = signal<Record<string, ClaimReviewComparison>>({});
   readonly preparedCheque = signal<ChequePrepareResponse | null>(null);
   readonly cheques = signal<ChequeDto[]>([]);
   readonly upcomingCheques = signal<ChequeDto[]>([]);
@@ -311,6 +327,7 @@ export class AppComponent {
 
   readonly differenceReasonOptions: { value: DifferenceReason; label: string }[] =
     [
+      { value: "PricingError", label: "خطأ في التسعير" },
       { value: "ContractualDeduction", label: "خصم تعاقدات" },
       { value: "DeferredToNextMonth", label: "مؤجل لشهر قادم" },
       { value: "AccountingDeficit", label: "عجز محاسبي" },
@@ -706,16 +723,64 @@ export class AppComponent {
     this.claimsLoading.set(true);
     this.salesClaimsService
       .getClaims(this.claimsFilter.month, this.claimsFilter.year)
-      .pipe(finalize(() => this.claimsLoading.set(false)))
+      .pipe(
+        switchMap((claims) => {
+          const visibleClaims = this.isClaimsReviewer()
+            ? claims
+            : this.filterClaimsByCompany(claims);
+
+          return this.loadClaimReviewComparisons(visibleClaims).pipe(
+            map((comparisons) => ({ claims: visibleClaims, comparisons })),
+          );
+        }),
+        finalize(() => this.claimsLoading.set(false)),
+      )
       .subscribe({
-        next: (claims) =>
-          this.claims.set(
-            this.isClaimsReviewer()
-              ? claims
-              : this.filterClaimsByCompany(claims),
-          ),
+        next: ({ claims, comparisons }) => {
+          this.claims.set(claims);
+          this.claimReviewComparisons.set(comparisons);
+        },
         error: (error) => this.showError(error),
       });
+  }
+
+  claimReviewComparison(claim: ClaimDto): ClaimReviewComparison | null {
+    return this.claimReviewComparisons()[claim.id] ?? null;
+  }
+
+  private loadClaimReviewComparisons(
+    claims: ClaimDto[],
+  ): Observable<Record<string, ClaimReviewComparison>> {
+    if (!this.isPharmacy()) {
+      return of({});
+    }
+
+    const reviewedClaims = claims.filter(
+      (claim) =>
+        claim.status === "Reviewed" || claim.status === "UpdateAfterReviewed",
+    );
+
+    if (!reviewedClaims.length) {
+      return of({});
+    }
+
+    return forkJoin(
+      reviewedClaims.map((claim) =>
+        this.salesClaimsService.getClaimReview(claim.id).pipe(
+          map((review) => [claim.id, review] as const),
+          catchError(() => of(null)),
+        ),
+      ),
+    ).pipe(
+      map((entries) =>
+        Object.fromEntries(
+          entries.filter(
+            (entry): entry is readonly [string, ClaimReviewResponse] =>
+              entry !== null,
+          ),
+        ),
+      ),
+    );
   }
 
   loadCompanyInsights(): void {
@@ -750,7 +815,6 @@ export class AppComponent {
         correctedPrescriptionsCount:
           claim.correctedPrescriptionsCount ?? claim.prescriptionsCount,
         differences: this.defaultDifferencesForClaim(claim),
-        notes: "",
       };
       this.loadClaimReview(claim.id);
       return;
@@ -778,7 +842,6 @@ export class AppComponent {
         pendingClaim.correctedPrescriptionsCount ??
         pendingClaim.prescriptionsCount,
       differences: this.defaultDifferencesForClaim(pendingClaim),
-      notes: "",
     };
 
     if (this.isPharmacy()) {
@@ -815,8 +878,9 @@ export class AppComponent {
 
   saveClaimReview(): void {
     const claim = this.selectedClaim();
+    const isEditing = this.editingClaimReview();
 
-    if (!this.isClaimsReviewer()) {
+    if (!this.isClaimsReviewer() && !(isEditing && this.isPharmacy())) {
       this.message.set("مراجعة المطالبات متاحة لمراجع المطالبات فقط.");
       return;
     }
@@ -826,7 +890,7 @@ export class AppComponent {
       return;
     }
 
-    if (claim.status === "Reviewed" || this.selectedClaimReview()) {
+    if (!isEditing && (claim.status === "Reviewed" || this.selectedClaimReview())) {
       this.reviewFormError.set("تمت مراجعة هذه المطالبة بالفعل.");
       return;
     }
@@ -841,22 +905,26 @@ export class AppComponent {
     this.reviewFormError.set("");
 
     const reviewPayload = this.buildReviewPayload();
+    const reviewRequest = isEditing
+      ? this.salesClaimsService.updateClaimReview(claim.id, reviewPayload)
+      : this.salesClaimsService.saveClaimReview(claim.id, reviewPayload);
 
-    this.withLoading(
-      this.salesClaimsService.saveClaimReview(claim.id, reviewPayload),
-    ).subscribe({
+    this.withLoading(reviewRequest).subscribe({
       next: (review) => {
         this.selectedClaimReview.set(review);
         const reviewedClaim: ClaimDto = {
           ...(this.selectedClaim() ?? claim),
-          status: "Reviewed",
+          status: isEditing ? "UpdateAfterReviewed" : "Reviewed",
           correctedAmount: review.correctedAmount,
           correctedPrescriptionsCount: review.correctedPrescriptionsCount,
           discrepancyType: review.differences[0]?.reason ?? null,
-          notes: review.notes,
         };
         this.selectedClaim.set(reviewedClaim);
-        this.message.set("تم حفظ مراجعة المطالبة.");
+        this.claimReviewComparisons.update((comparisons) => ({
+          ...comparisons,
+          [claim.id]: review,
+        }));
+        this.message.set(isEditing ? "تم تحديث مراجعة المطالبة." : "تم حفظ مراجعة المطالبة.");
         this.editingClaimReview.set(false);
         this.loadClaims();
       },
@@ -890,7 +958,6 @@ export class AppComponent {
       correctedPrescriptionsCount:
         claim.correctedPrescriptionsCount ?? claim.prescriptionsCount,
       differences: this.defaultDifferencesForClaim(claim),
-      notes: "",
     };
     this.loadClaimReview(claim.id);
   }
@@ -903,12 +970,15 @@ export class AppComponent {
     this.salesClaimsService.getClaimReview(claimId).subscribe({
       next: (review) => {
         this.selectedClaimReview.set(review);
+        this.claimReviewComparisons.update((comparisons) => ({
+          ...comparisons,
+          [claimId]: review,
+        }));
         this.reviewForm = {
           isAccurate: review.isAccurate,
           correctedAmount: review.correctedAmount,
           correctedPrescriptionsCount: review.correctedPrescriptionsCount,
           differences: review.differences ?? [],
-          notes: review.notes,
         };
       },
       error: () => this.selectedClaimReview.set(null),
@@ -935,7 +1005,7 @@ export class AppComponent {
   addReviewDifference(): void {
     this.reviewForm.differences = [
       ...this.reviewForm.differences,
-      { value: 0, reason: "Other" },
+      { value: 0, reason: "Other", notes: null },
     ];
   }
 
@@ -943,12 +1013,27 @@ export class AppComponent {
     this.reviewForm.differences = this.reviewForm.differences.filter(
       (_, currentIndex) => currentIndex !== index,
     );
+
   }
 
   reviewDifferencesTotal(): number {
     return this.reviewForm.differences.reduce(
       (sum, difference) => sum + Number(difference.value || 0),
       0,
+    );
+  }
+
+  reviewRemainingDifference(claim = this.selectedClaim()): number {
+    const remaining =
+      this.reviewExpectedDifference(claim) - this.reviewDifferencesTotal();
+
+    return Math.max(0, Math.round(remaining * 100) / 100);
+  }
+
+  reviewDifferenceRequirementSatisfied(claim = this.selectedClaim()): boolean {
+    return (
+      Math.round(this.reviewDifferencesTotal() * 100) >=
+      Math.round(this.reviewExpectedDifference(claim) * 100)
     );
   }
 
@@ -960,6 +1045,42 @@ export class AppComponent {
     }
 
     return Math.abs(Number(correctedAmount) - claim.claimAmount);
+  }
+
+  reviewDifferenceDirection(claim = this.selectedClaim()): string {
+    const correctedAmount = this.reviewForm.correctedAmount;
+
+    if (correctedAmount === null || correctedAmount === undefined || !claim) {
+      return "غير محدد";
+    }
+
+    if (Number(correctedAmount) > claim.claimAmount) {
+      return "زيادة";
+    }
+
+    if (Number(correctedAmount) < claim.claimAmount) {
+      return "عجز";
+    }
+
+    return "مطابق";
+  }
+
+  reviewDifferenceDirectionClass(claim = this.selectedClaim()): string {
+    const direction = this.reviewDifferenceDirection(claim);
+
+    if (direction === "زيادة") {
+      return "is-increase";
+    }
+
+    if (direction === "عجز") {
+      return "is-deficit";
+    }
+
+    if (direction === "مطابق") {
+      return "is-equal";
+    }
+
+    return "is-empty";
   }
 
   prepareCheque(claim?: ClaimDto): void {
@@ -1345,20 +1466,11 @@ export class AppComponent {
       correctedAmount: null,
       correctedPrescriptionsCount: null,
       differences: [],
-      notes: "",
     };
   }
 
-  private defaultDifferencesForClaim(claim: ClaimDto): ClaimReviewDifferenceRequest[] {
-    const difference = Math.abs(
-      (claim.correctedAmount ?? claim.claimAmountAfterDiscount) - claim.claimAmount,
-    );
-
-    if (difference <= 0.01) {
-      return [];
-    }
-
-    return [{ value: Number(difference.toFixed(2)), reason: "Other" }];
+  private defaultDifferencesForClaim(_claim: ClaimDto): ClaimReviewDifferenceRequest[] {
+    return [{ value: 0, reason: "Other", notes: null }];
   }
 
   private claimPeriodOrMessage(): { month: number; year: number } | null {
@@ -1394,8 +1506,8 @@ export class AppComponent {
         : this.reviewForm.differences.map((difference) => ({
             value: Number(difference.value),
             reason: difference.reason,
+            notes: difference.notes?.trim() || null,
           })),
-      notes: this.reviewForm.notes,
     };
   }
 
@@ -1405,6 +1517,7 @@ export class AppComponent {
    * validation errors (returned in error.error.errors) are still surfaced
    * via showError().
    */
+
   private validateReviewForm(): string | null {
     if (this.reviewForm.isAccurate === true) {
       return null;
@@ -1414,21 +1527,21 @@ export class AppComponent {
       this.reviewForm.correctedAmount === null ||
       this.reviewForm.correctedAmount === undefined
     ) {
-      return "اكتب المبلغ المصحح.";
+      return "اكتب قيمة المطالبة الفعلية.";
     }
 
     const correctedCount = this.reviewForm.correctedPrescriptionsCount;
 
     if (correctedCount === null || correctedCount === undefined) {
-      return "اكتب عدد الروشتات المصحح.";
+      return "اكتب عدد الروشتات الفعلية.";
     }
 
     if (!Number.isInteger(correctedCount) || correctedCount < 0) {
-      return "عدد الروشتات المصحح يجب أن يكون رقمًا صحيحًا أكبر من أو يساوي صفر.";
+      return "عدد الروشتات الفعلية يجب أن يكون رقمًا صحيحًا أكبر من أو يساوي صفر.";
     }
 
     if (this.reviewForm.correctedAmount < 0) {
-      return "المبلغ المصحح يجب أن يكون أكبر من أو يساوي صفر.";
+      return "قيمة المطالبة الفعلية يجب أن تكون أكبر من أو تساوي صفر.";
     }
 
     const differences = this.reviewForm.differences;
@@ -1441,6 +1554,10 @@ export class AppComponent {
       return "كل قيمة فرق يجب أن تكون أكبر من صفر.";
     }
 
+    if (differences.some((difference) => (difference.notes?.length ?? 0) > 1000)) {
+      return "ملاحظة كل فرق يجب ألا تتجاوز ١٬٠٠٠ حرف.";
+    }
+
     const differenceTotal = differences.reduce(
       (sum, difference) => sum + Number(difference.value || 0),
       0,
@@ -1449,8 +1566,8 @@ export class AppComponent {
       this.reviewForm.correctedAmount - (this.selectedClaim()?.claimAmount ?? 0),
     );
 
-    if (Math.abs(differenceTotal - expectedDifference) > 0.01) {
-      return `إجمالي الفروق يجب أن يساوي ${this.formatMoney(expectedDifference)}.`;
+    if (Math.round(differenceTotal * 100) < Math.round(expectedDifference * 100)) {
+      return `إجمالي الفروق أقل من المطلوب. المتبقي ${this.formatMoney(expectedDifference - differenceTotal)}.`;
     }
 
     return null;
@@ -1484,6 +1601,26 @@ export class AppComponent {
     return "صيدلية";
   }
 
+  displayClaimStatus(status: string): string {
+    const labels: Record<string, string> = {
+      Pending: "إنتظار",
+      Reviewed: "تمت المراجعة",
+      UpdateAfterReviewed: "تعديل بعد المراجعة",
+    };
+
+    return labels[status] ?? status;
+  }
+
+  claimStatusClass(status: string): string {
+    const classes: Record<string, string> = {
+      Pending: "is-pending",
+      Reviewed: "is-reviewed",
+      UpdateAfterReviewed: "is-updated",
+    };
+
+    return classes[status] ?? "is-unknown";
+  }
+
   displayBatchStatus(status: string): string {
     const labels: Record<string, string> = {
       Pending: "قيد الانتظار",
@@ -1508,6 +1645,7 @@ export class AppComponent {
   displayDiscrepancyType(discrepancyType: string | null): string {
     const labels: Record<string, string> = {
       Other: "أخرى",
+      PricingError: "خطأ في التسعير",
       ContractualDeduction: "خصم تعاقدات",
       DeferredToNextMonth: "مؤجل لشهر قادم",
       AccountingDeficit: "عجز محاسبي",
@@ -1604,6 +1742,7 @@ export class AppComponent {
     this.pivotData.set(null);
     this.appliedClaimsPeriod.set(null);
     this.claims.set([]);
+    this.claimReviewComparisons.set({});
     this.companyInsights.set(null);
     this.selectedClaim.set(null);
     this.selectedClaimReview.set(null);
@@ -1672,7 +1811,13 @@ export class AppComponent {
       .getClaimDifferences(claim.id)
       .pipe(finalize(() => this.claimDifferencesLoading.set(false)))
       .subscribe({
-        next: (response) => this.claimDifferences.set(response),
+        next: (response) => {
+          this.claimDifferences.set(response);
+          this.claimReviewComparisons.update((comparisons) => ({
+            ...comparisons,
+            [claim.id]: response,
+          }));
+        },
         error: (error: HttpErrorResponse) => {
           if (error.status === 404) {
             this.claimDifferencesError.set(
@@ -1761,6 +1906,33 @@ export class AppComponent {
     this.claimDifferencesClaimId.set(null);
   }
 
+  claimComparisonLabel(key: ClaimReviewComparisonTranslationKey): string {
+    return claimReviewComparisonTranslation(
+      key,
+      document.documentElement.lang.toLowerCase().startsWith("en") ? "en" : "ar",
+    );
+  }
+
+  comparisonDirectionClass(type: DifferenceType): string {
+    return `is-${type.toLowerCase()}`;
+  }
+
+  comparisonDirectionArrow(type: DifferenceType): string {
+    if (type === "Increase") {
+      return "↑";
+    }
+
+    if (type === "Decrease") {
+      return "↓";
+    }
+
+    return "−";
+  }
+
+  comparisonDirectionLabel(type: DifferenceType): string {
+    return this.claimComparisonLabel(type);
+  }
+
   displayDifferenceType(type: DifferenceType): string {
     const labels: Record<DifferenceType, string> = {
       Increase: 'زيادة',
@@ -1773,6 +1945,7 @@ export class AppComponent {
 
   displayDifferenceReason(reason: DifferenceReason): string {
     const labels: Record<DifferenceReason, string> = {
+      PricingError: 'خطأ في التسعير',
       ContractualDeduction: 'خصم تعاقدي',
       DeferredToNextMonth: 'مؤجل للشهر القادم',
       AccountingDeficit: 'خطأ محاسبي',

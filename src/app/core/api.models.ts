@@ -247,6 +247,7 @@ export interface UpdateChequeStatusRequest {
 export type DifferenceType = 'Increase' | 'Decrease' | 'NoDifference';
 
 export type DifferenceReason =
+  | 'PricingError'
   | 'ContractualDeduction'
   | 'DeferredToNextMonth'
   | 'AccountingDeficit'
@@ -255,6 +256,7 @@ export type DifferenceReason =
 export interface ClaimReviewDifferenceRequest {
   value: number;
   reason: DifferenceReason;
+  notes: string | null;
 }
 
 export interface ClaimReviewRequest {
@@ -262,27 +264,42 @@ export interface ClaimReviewRequest {
   correctedAmount: number | null;
   correctedPrescriptionsCount: number | null;
   differences: ClaimReviewDifferenceRequest[];
-  notes: string | null;
 }
 
-export interface ClaimReviewResponse extends ClaimReviewRequest {
+export interface ClaimReviewDifferenceResponse {
+  id: string;
+  value: number;
+  reason: DifferenceReason;
+  notes: string | null;
+  reviewId: string;
+  pharmacyId: string;
+}
+
+export interface ClaimReviewComparison {
+  amountBeforeDiscount: number;
+  correctedAmount: number | null;
+  amountDifference: number;
+  amountDifferenceType: DifferenceType;
+  prescriptionsCount: number;
+  correctedPrescriptionsCount: number | null;
+  prescriptionsCountDifference: number;
+  prescriptionsCountDifferenceType: DifferenceType;
+}
+
+export interface ClaimReviewResponse extends ClaimReviewComparison {
   id: string;
   claimId: string;
   reviewedByUserId: string;
+  isAccurate: boolean;
+  differences: ClaimReviewDifferenceResponse[];
   wasEditedByPharmacy?: boolean;
   createdAt: string;
   lastEditedAt?: string | null;
 }
 
-export interface ClaimDifferenceItem {
-  id: string;
-  value: number;
-  reason: DifferenceReason;
-  reviewId: string;
-  pharmacyId: string;
-}
+export type ClaimDifferenceItem = ClaimReviewDifferenceResponse;
 
-export interface ClaimDifferencesResponse {
+export interface ClaimDifferencesResponse extends ClaimReviewComparison {
   claimId: string;
   reviewId: string;
   differenceAmount: number;

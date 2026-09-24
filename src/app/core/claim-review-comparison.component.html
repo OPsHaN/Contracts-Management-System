@@ -1,0 +1,70 @@
+<div class="comparison-sections">
+  <section class="comparison-section" aria-labelledby="amount-comparison-title">
+    <h4 id="amount-comparison-title">{{ label("amountComparison") }}</h4>
+    <div class="comparison-values">
+      <div>
+        <span>{{ label("originalAmount") }}</span>
+        <strong data-testid="original-amount">{{ moneyFormatter(comparison.amountBeforeDiscount) }}</strong>
+      </div>
+      <div>
+        <span>{{ label("correctedAmount") }}</span>
+        <strong data-testid="corrected-amount">
+          {{
+            comparison.correctedAmount === null
+              ? "—"
+              : moneyFormatter(comparison.correctedAmount)
+          }}
+        </strong>
+      </div>
+      <div>
+        <span>{{ label("absoluteDifference") }}</span>
+        <strong>{{ moneyFormatter(comparison.amountDifference) }}</strong>
+      </div>
+      <div>
+        <span>{{ label("direction") }}</span>
+        <strong
+          data-testid="amount-direction"
+          class="direction-badge"
+          [ngClass]="directionClass(comparison.amountDifferenceType)"
+        >
+          <span aria-hidden="true">{{ directionArrow(comparison.amountDifferenceType) }}</span>
+          {{ label(comparison.amountDifferenceType) }}
+        </strong>
+      </div>
+    </div>
+  </section>
+
+  <section
+    class="comparison-section"
+    aria-labelledby="prescriptions-comparison-title"
+  >
+    <h4 id="prescriptions-comparison-title">
+      {{ label("prescriptionsComparison") }}
+    </h4>
+    <div class="comparison-values">
+      <div>
+        <span>{{ label("originalPrescriptionsCount") }}</span>
+        <strong data-testid="original-prescriptions">{{ formatCount(comparison.prescriptionsCount) }}</strong>
+      </div>
+      <div>
+        <span>{{ label("correctedPrescriptionsCount") }}</span>
+        <strong data-testid="corrected-prescriptions">{{ formatCount(comparison.correctedPrescriptionsCount) }}</strong>
+      </div>
+      <div>
+        <span>{{ label("absoluteDifference") }}</span>
+        <strong>{{ formatCount(comparison.prescriptionsCountDifference) }}</strong>
+      </div>
+      <div>
+        <span>{{ label("direction") }}</span>
+        <strong
+          data-testid="prescriptions-direction"
+          class="direction-badge"
+          [ngClass]="directionClass(comparison.prescriptionsCountDifferenceType)"
+        >
+          <span aria-hidden="true">{{ directionArrow(comparison.prescriptionsCountDifferenceType) }}</span>
+          {{ label(comparison.prescriptionsCountDifferenceType) }}
+        </strong>
+      </div>
+    </div>
+  </section>
+</div>
