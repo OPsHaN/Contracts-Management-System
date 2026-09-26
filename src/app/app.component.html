@@ -1659,7 +1659,7 @@
                 {{ reviewFormError() }}
               </div>
 
-              <button type="submit" [disabled]="loading()">حفظ المراجعة</button>
+              <button type="submit" class="save" [disabled]="loading()">حفظ المراجعة</button>
             </form>
             <div
               class="saved-review"
@@ -1759,7 +1759,7 @@
               </div>
               <div class="cheque-field">
                 <span>مبلغ الشيك</span>
-                <strong>{{ formatMoney(prepared.amount) }}</strong>
+                <strong>{{ formatMoney(prepared.correctAmount) }}</strong>
               </div>
               <div class="financial-summary-grid">
                 <div class="cheque-field">
@@ -1767,12 +1767,12 @@
                   <strong>{{ formatMoney(prepared.amountBeforeDiscount) }}</strong>
                 </div>
                 <div class="cheque-field">
-                  <span>المبلغ بعد الخصم</span>
-                  <strong>{{ formatMoney(prepared.amountAfterDiscount) }}</strong>
+                  <span>المبلغ الصحيح</span>
+                  <strong>{{ formatMoney(prepared.correctAmount) }}</strong>
                 </div>
                 <div class="cheque-field">
-                  <span>فرق الخصم</span>
-                  <strong>{{ formatMoney(prepared.discountDifference) }}</strong>
+                  <span>فرق المبلغ</span>
+                  <strong>{{ formatMoney(prepared.amountDifference) }}</strong>
                 </div>
                 <div class="cheque-field">
                   <span>نسبة الضريبة</span>
@@ -1909,15 +1909,15 @@
                 <th>اسم البنك</th>
                 <th>الإدارة</th>
                 <th>قبل الخصم</th>
-                <th>بعد الخصم</th>
-                <th>فرق الخصم</th>
+                <th>المبلغ الصحيح</th>
+                <th>فرق المبلغ</th>
                 <th>الضريبة</th>
                 <th>المصاريف الإدارية</th>
                 <th>النهائي المتوقع</th>
-                <th>المدفوع</th>
+                <th>المستلم</th>
                 <th>فرق الدفع</th>
                 <th>نوع الفرق</th>
-                <th>البداية</th>
+                <th>شهر / سنة المطالبة</th><th>مدة التسوية</th><th>تاريخ الشيك</th><th>البداية</th>
                 <th>النهاية</th>
                 <th>الحالة</th>
                 <th>المتبقي</th>
@@ -1930,14 +1930,14 @@
                 <td dir="ltr">{{ (cheque.chequeNumber || "-") | arabicDigits }}</td>
                 <td>{{ cheque.bankName || "-" }}</td>
                 <td>{{ cheque.departmentName || "-" }}</td>
-                <td>{{ formatMoney(chequeFinancialAmount(cheque, "amountBeforeDiscount")) }}</td>
-                <td>{{ formatMoney(chequeFinancialAmount(cheque, "amountAfterDiscount")) }}</td>
-                <td>{{ formatMoney(chequeFinancialAmount(cheque, "discountDifference")) }}</td>
+                <td>{{ formatMoney(cheque.amountBeforeDiscount) }}</td>
+                <td>{{ formatMoney(cheque.correctAmount) }}</td>
+                <td>{{ formatMoney(cheque.amountDifference) }}</td>
                 <td>{{ formatPercent(cheque.taxPercentage) }}</td>
                 <td>{{ formatPercent(cheque.administrativeExpensesPercentage) }}</td>
-                <td>{{ formatMoney(chequeFinancialAmount(cheque, "finalAmount")) }}</td>
-                <td>{{ formatMoney(chequePaidAmount(cheque)) }}</td>
-                <td>{{ formatMoney(chequeFinancialAmount(cheque, "paymentDifference")) }}</td>
+                <td>{{ formatMoney(cheque.finalAmount) }}</td>
+                <td>{{ formatReceiptMoney(cheque.actualAmount) }}</td>
+                <td>{{ formatReceiptMoney(cheque.paymentDifference) }}</td>
                 <td>
                   <span
                     class="difference-pill"
@@ -1946,6 +1946,9 @@
                     {{ displayPaymentDifferenceType(cheque.paymentDifferenceType) }}
                   </span>
                 </td>
+                <td>{{ cheque.claimMonth | arabicDigits }}/{{ cheque.claimYear | arabicDigits }}</td>
+                <td>{{ cheque.settlementDays | arabicDigits }}</td>
+                <td>{{ cheque.chequeDate ? (cheque.chequeDate | date: "mediumDate" | arabicDigits) : "لم يُستلم" }}</td>
                 <td>{{ cheque.startDate | date: "mediumDate" | arabicDigits }}</td>
                 <td>{{ cheque.endDate | date: "mediumDate" | arabicDigits }}</td>
                 <td>{{ displayChequeStatus(cheque.status) }}</td>
@@ -1998,9 +2001,10 @@
                     <th>الشركة</th>
                     <th>رقم الشيك</th>
                     <th>اسم البنك</th>
-                    <th>المدفوع</th>
+                    <th>المستلم</th>
                     <th>النهائي المتوقع</th>
                     <th>فرق الدفع</th>
+                    <th>نوع الفرق</th><th>تاريخ الشيك</th>
                     <th>تاريخ الاستحقاق</th>
                     <th>الحالة</th>
                   </tr>
@@ -2010,9 +2014,11 @@
                     <td>{{ cheque.companyName }}</td>
                     <td dir="ltr">{{ (cheque.chequeNumber || "-") | arabicDigits }}</td>
                     <td>{{ cheque.bankName || "-" }}</td>
-                    <td>{{ formatMoney(chequePaidAmount(cheque)) }}</td>
-                    <td>{{ formatMoney(chequeFinancialAmount(cheque, "finalAmount")) }}</td>
-                    <td>{{ formatMoney(chequeFinancialAmount(cheque, "paymentDifference")) }}</td>
+                    <td>{{ formatReceiptMoney(cheque.actualAmount) }}</td>
+                    <td>{{ formatMoney(cheque.finalAmount) }}</td>
+                    <td>{{ formatReceiptMoney(cheque.paymentDifference) }}</td>
+                    <td><span class="difference-pill" [ngClass]="paymentDifferenceClass(cheque.paymentDifferenceType)">{{ displayPaymentDifferenceType(cheque.paymentDifferenceType) }}</span></td>
+                    <td>{{ cheque.chequeDate ? (cheque.chequeDate | date: "mediumDate" | arabicDigits) : "لم يُستلم" }}</td>
                     <td>{{ cheque.endDate | date: "mediumDate" | arabicDigits }}</td>
                     <td>{{ displayChequeStatus(cheque.status) }}</td>
                   </tr>
@@ -2046,7 +2052,6 @@
                   type="text"
                   name="modalChequeNumber"
                   [(ngModel)]="chequeStatusForm.chequeNumber"
-                  required
                 />
               </label>
 
@@ -2056,7 +2061,6 @@
                   type="text"
                   name="modalBankName"
                   [(ngModel)]="chequeStatusForm.bankName"
-                  required
                 />
               </label>
 
@@ -2069,14 +2073,22 @@
                   <option value="PaidInFull">مدفوع بالكامل</option>
                   <option value="PartiallyPaid">مدفوع جزئيًا</option>
                   <option value="Pending">قيد الانتظار</option>
+                  <option value="Deferred">مؤجل</option>
+                  <option value="Overdue">متأخر</option>
                 </select>
               </label>
 
+              <ng-container *ngIf="chequeStatusForm.status === 'PaidInFull' || chequeStatusForm.status === 'PartiallyPaid'">
+                <label>المبلغ المستلم<input type="number" name="modalActualAmount" [(ngModel)]="chequeStatusForm.actualAmount" min="0" step="0.01" required /></label>
+                <label>تاريخ الشيك<input type="date" name="modalChequeDate" [(ngModel)]="chequeStatusForm.chequeDate" required /></label>
+              </ng-container>
               <label *ngIf="chequeStatusForm.status === 'PartiallyPaid'">
                 المبلغ المتبقي
                 <input
                   type="number"
                   name="modalRemainingAmount"
+                  [max]="selectedChequeForStatus()?.finalAmount ?? 0"
+                  step="0.01"
                   [(ngModel)]="chequeStatusForm.remainingAmount"
                   min="0"
                   required

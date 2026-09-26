@@ -576,3 +576,8 @@
     align-items: stretch;
   }
 }
+
+.difference-pill { display: inline-flex; border-radius: 20px; padding: 5px 9px; white-space: nowrap; }
+.difference-Increase { background: #e5f8ee; color: #08724d; }
+.difference-Decrease { background: #fff7ed; color: #b45309; }
+.difference-Equal { background: #eef1f4; color: #475569; }

@@ -182,19 +182,13 @@ export interface GenerateClaimsRequest {
   year: number;
 }
 
-/**
- * When `isAccurate` is `true`, `correctedAmount`, `correctedPrescriptionsCount`
- * and `discrepancyType` must be sent as `null` (the generated values are
- * approved as-is). When `isAccurate` is `false`, all three are required:
- * `correctedPrescriptionsCount` must additionally be a whole number >= 0.
- */
+/** Backend-calculated claim financials used to prepare cheque allocations. */
 export interface ChequePrepareResponse {
   claimId: string;
   companyName: string;
-  amount: number;
   amountBeforeDiscount: number;
-  amountAfterDiscount: number;
-  discountDifference: number;
+  correctAmount: number;
+  amountDifference: number;
   taxPercentage: number;
   administrativeExpensesPercentage: number;
   finalAmount: number;
@@ -202,6 +196,7 @@ export interface ChequePrepareResponse {
   departments: string[];
 }
 
+/** Each amount allocates a share of the prepared correctAmount, before tax and expenses. */
 export interface ChequeAllocation {
   departmentName: string | null;
   amount: number;
@@ -222,26 +217,35 @@ export interface ChequeDto {
   chequeNumber: string | null;
   bankName: string | null;
   departmentName: string | null;
-  amount: number;
   amountBeforeDiscount: number;
-  amountAfterDiscount: number;
-  discountDifference: number;
+  correctAmount: number;
+  amountDifference: number;
   taxPercentage: number;
   administrativeExpensesPercentage: number;
   finalAmount: number;
-  paidAmount: number;
-  paymentDifference: number;
-  paymentDifferenceType: PaymentDifferenceType;
+  actualAmount: number | null;
+  paymentDifference: number | null;
+  paymentDifferenceType: PaymentDifferenceType | null;
+  claimMonth: number;
+  claimYear: number;
+  chequeDate: string | null;
+  settlementDays: number;
   startDate: string;
   endDate: string;
-  status: string;
+  status: ChequeStatus;
   remainingAmount: number | null;
   createdAt: string;
 }
 
+export type ChequeStatus = 'Pending' | 'PaidInFull' | 'PartiallyPaid' | 'Deferred' | 'Overdue';
+
 export interface UpdateChequeStatusRequest {
-  status: 'Pending' | 'PaidInFull' | 'PartiallyPaid';
-  remainingAmount?: number | null;
+  status: ChequeStatus;
+  actualAmount: number | null;
+  chequeDate: string | null;
+  remainingAmount: number | null;
+  chequeNumber: string | null;
+  bankName: string | null;
 }
 
 export type DifferenceType = 'Increase' | 'Decrease' | 'NoDifference';

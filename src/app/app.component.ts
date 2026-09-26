@@ -6,6 +6,8 @@ import { Observable, catchError, finalize, forkJoin, map, of, switchMap } from "
 
 import {
   ChequeAllocation,
+  ChequeStatus,
+  UpdateChequeStatusRequest,
   ChequeDto,
   ChequePrepareResponse,
   ClaimDifferencesResponse,
@@ -298,7 +300,9 @@ export class AppComponent {
 
   chequeStatusForm = {
     chequeId: "",
-    status: "PaidInFull" as "Pending" | "PaidInFull" | "PartiallyPaid",
+    status: "PaidInFull" as ChequeStatus,
+    actualAmount: null as number | null,
+    chequeDate: "",
     remainingAmount: null as number | null,
     chequeNumber: "",
     bankName: "",
@@ -1146,9 +1150,9 @@ export class AppComponent {
       0,
     );
 
-    if (Math.abs(allocationsTotal - prepared.amount) > 0.01) {
+    if (!payload.allocations.length || payload.allocations.some(a => !Number.isFinite(a.amount) || a.amount < 0) || Math.abs(allocationsTotal - prepared.correctAmount) > 0.000001) {
       this.message.set(
-        `إجمالي مبالغ الشيكات يجب أن يساوي ${this.formatMoney(prepared.amount)}.`,
+        `إجمالي مبالغ الشيكات يجب أن يساوي ${this.formatMoney(prepared.correctAmount)}.`,
       );
       return;
     }
@@ -1168,7 +1172,10 @@ export class AppComponent {
         };
 
         this.cheques.update(mergeCheques);
-        this.upcomingCheques.update(mergeCheques);
+        this.salesClaimsService.getUpcomingDueCheques().subscribe({
+          next: cheques => this.upcomingCheques.set(cheques),
+          error: error => this.showError(error),
+        });
         this.createdChequeClaimIds.update((claimIds) =>
           claimIds.includes(prepared.claimId)
             ? claimIds
@@ -1186,14 +1193,13 @@ export class AppComponent {
     return (
       this.createdChequeClaimIds().includes(claim.id) ||
       this.displayedCheques().some(
-        (cheque) => cheque.companyName === claim.companyName,
+        (cheque) => cheque.companyName === claim.companyName && cheque.claimMonth === claim.month && cheque.claimYear === claim.year,
       )
     );
   }
 
   loadCheques(loadAll = false): void {
     this.chequesLoading.set(true);
-    this.cheques.set([]);
     this.salesClaimsService
       .getCheques(
         loadAll ? undefined : this.claimsFilter.companyName.trim() || undefined,
@@ -1225,7 +1231,9 @@ export class AppComponent {
     this.selectedChequeForStatus.set(cheque);
     this.chequeStatusForm = {
       chequeId: cheque.id,
-      status: cheque.status as "Pending" | "PaidInFull" | "PartiallyPaid",
+      status: cheque.status,
+      actualAmount: cheque.actualAmount,
+      chequeDate: cheque.chequeDate?.slice(0, 10) ?? "",
       remainingAmount: cheque.remainingAmount,
       chequeNumber: cheque.chequeNumber ?? "",
       bankName: cheque.bankName ?? "",
@@ -1245,14 +1253,28 @@ export class AppComponent {
       return;
     }
 
-    const payload = {
-      chequeNumber: this.chequeStatusForm.chequeNumber,
-      bankName: this.chequeStatusForm.bankName,
-      status: this.chequeStatusForm.status,
-      remainingAmount:
-        this.chequeStatusForm.status === "PartiallyPaid"
-          ? this.chequeStatusForm.remainingAmount
-          : null,
+    const form = this.chequeStatusForm;
+    const received = form.status === "PaidInFull" || form.status === "PartiallyPaid";
+    const date = new Date(form.chequeDate + "T00:00:00Z");
+    if (received && (form.actualAmount === null || !Number.isFinite(form.actualAmount) || form.actualAmount < 0 ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(form.chequeDate) || Number.isNaN(date.getTime()) ||
+        date.toISOString().slice(0, 10) !== form.chequeDate)) {
+      this.message.set("أدخل مبلغ الاستلام غير السالب وتاريخ شيك صحيح.");
+      return;
+    }
+    const cheque = this.selectedChequeForStatus();
+    if (!cheque || (form.status === "PartiallyPaid" && (form.remainingAmount === null ||
+        !Number.isFinite(form.remainingAmount) || form.remainingAmount < 0 || form.remainingAmount > cheque.finalAmount))) {
+      this.message.set("المبلغ المتبقي مطلوب ويجب أن يكون بين صفر والمبلغ النهائي.");
+      return;
+    }
+    const payload: UpdateChequeStatusRequest = {
+      chequeNumber: form.chequeNumber.trim() || null,
+      bankName: form.bankName.trim() || null,
+      status: form.status,
+      actualAmount: received ? form.actualAmount : null,
+      chequeDate: received ? date.toISOString() : null,
+      remainingAmount: form.status === "PartiallyPaid" ? form.remainingAmount : null,
     };
 
     this.withLoading(
@@ -1261,22 +1283,15 @@ export class AppComponent {
         payload,
       ),
     ).subscribe({
-      next: () => {
-        const updateCheque = (cheques: ChequeDto[]) =>
-          cheques.map((cheque) =>
-            cheque.id === this.chequeStatusForm.chequeId
-              ? {
-                  ...cheque,
-                  chequeNumber: payload.chequeNumber,
-                  bankName: payload.bankName,
-                  status: payload.status,
-                  remainingAmount: payload.remainingAmount,
-                }
-              : cheque,
-          );
-
-        this.cheques.update(updateCheque);
-        this.upcomingCheques.update(updateCheque);
+      next: (updated) => {
+        const replace = (cheques: ChequeDto[]) => cheques.map(cheque => cheque.id === updated.id ? updated : cheque);
+        this.cheques.update(replace);
+        this.upcomingCheques.update(replace);
+        this.loadCheques(this.activePharmacyStep() === "cheques");
+        this.salesClaimsService.getUpcomingDueCheques().subscribe({
+          next: cheques => this.upcomingCheques.set(cheques),
+          error: error => this.showError(error),
+        });
 
         this.message.set("تم تحديث بيانات الشيك بنجاح.");
         this.closeChequeStatusModal();
@@ -1637,6 +1652,8 @@ export class AppComponent {
   displayChequeStatus(status: string): string {
     const labels: Record<string, string> = {
       Pending: "قيد الانتظار",
+      Deferred: "مؤجل",
+      Overdue: "متأخر",
       PaidInFull: "مدفوع بالكامل",
       PartiallyPaid: "مدفوع جزئيًا",
     };
@@ -1685,37 +1702,21 @@ export class AppComponent {
     }).format(value)}%`;
   }
 
-  chequePaidAmount(cheque: ChequeDto): number {
-    return cheque.paidAmount ?? cheque.amount;
+  formatReceiptMoney(value: number | null): string {
+    return value === null ? "لم يُستلم" : this.formatMoney(value);
   }
 
-  chequeFinancialAmount(
-    cheque: ChequeDto,
-    key:
-      | "amountBeforeDiscount"
-      | "amountAfterDiscount"
-      | "discountDifference"
-      | "finalAmount"
-      | "paymentDifference",
-  ): number {
-    if (key === "paymentDifference") {
-      return Math.abs(cheque.paymentDifference ?? 0);
-    }
-
-    return cheque[key] ?? cheque.amount;
-  }
-
-  displayPaymentDifferenceType(type: PaymentDifferenceType | undefined): string {
+  displayPaymentDifferenceType(type: PaymentDifferenceType | null): string {
     const labels: Record<PaymentDifferenceType, string> = {
       Increase: "زيادة",
       Decrease: "نقص",
       Equal: "مطابق",
     };
 
-    return type ? labels[type] ?? type : "-";
+    return type ? labels[type] ?? type : "لم يُستلم";
   }
 
-  paymentDifferenceClass(type: PaymentDifferenceType | undefined): string {
+  paymentDifferenceClass(type: PaymentDifferenceType | null): string {
     return `difference-${type ?? "Equal"}`;
   }
 
@@ -1774,7 +1775,7 @@ export class AppComponent {
       return [
         {
           departmentName: "",
-          amount: prepared.amount,
+          amount: prepared.correctAmount,
           chequeNumber: null,
           bankName: null,
         },
@@ -1782,12 +1783,12 @@ export class AppComponent {
     }
 
     const baseAmount =
-      Math.floor((prepared.amount / prepared.departments.length) * 100) / 100;
+      Math.floor((prepared.correctAmount / prepared.departments.length) * 100) / 100;
     return prepared.departments.map((departmentName, index) => ({
       departmentName,
       amount:
         index === prepared.departments.length - 1
-          ? Number((prepared.amount - baseAmount * index).toFixed(2))
+          ? Number((prepared.correctAmount - baseAmount * index).toFixed(2))
           : baseAmount,
       chequeNumber: null,
       bankName: null,

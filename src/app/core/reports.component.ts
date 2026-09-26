@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject, catchError, finalize, of, switchMap, tap } from 'rxjs';
 
 import { AgingReport, CompanyBalance, CompanyDto, TotalBalance, UpcomingDueCheque } from './api.models';
+import { SalesClaimsService } from './sales-claims.service';
 import { AuthService } from './auth.service';
 import { CompaniesService } from './companies.service';
 import { LoadingOverlayComponent } from './loading-overlay.component';
@@ -149,6 +150,7 @@ export class ReportsComponent {
     // Initial independent loads. Company balance is intentionally excluded:
     // per spec it must not fire until the pharmacy selects a company.
     this.refetchReports();
+    inject(SalesClaimsService).chequesChanged$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refetchReports());
 
     const handlePopState = () => {
       this.reportPeriodFilter.set(this.readPeriodFilterFromUrl());
@@ -468,8 +470,12 @@ export class ReportsComponent {
     }).format(date);
   }
 
-  chequePaidAmount(cheque: UpcomingDueCheque): number {
-    return cheque.paidAmount ?? cheque.amount;
+  formatReceiptMoney(value: number | null): string {
+    return value === null ? 'لم يُستلم' : this.formatMoney(value);
+  }
+
+  displayPaymentDifferenceType(type: UpcomingDueCheque['paymentDifferenceType']): string {
+    return type === null ? 'لم يُستلم' : { Equal: 'مطابق', Increase: 'زيادة', Decrease: 'نقص' }[type];
   }
 
   balancePercent(balance: number): number {
@@ -510,6 +516,8 @@ export class ReportsComponent {
   displayChequeStatus(status: string): string {
     const labels: Record<string, string> = {
       Pending: 'قيد الانتظار',
+      Deferred: 'مؤجل',
+      Overdue: 'متأخر',
       PaidInFull: 'مدفوع بالكامل',
       PartiallyPaid: 'مدفوع جزئيًا',
     };

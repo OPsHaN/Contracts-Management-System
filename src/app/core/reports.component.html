@@ -403,7 +403,7 @@
             <th>الإدارة</th>
             <th>رقم الشيك</th>
             <th>اسم البنك</th>
-            <th>المدفوع</th>
+            <th>النهائي المتوقع</th><th>المستلم</th><th>فرق الدفع</th><th>نوع الفرق</th><th>تاريخ الشيك</th>
             <th>تاريخ الاستحقاق</th>
             <th>الأيام المتبقية</th>
             <th>الحالة</th>
@@ -415,7 +415,11 @@
             <td>{{ cheque.departmentName || "-" }}</td>
             <td>{{ cheque.chequeNumber ? formatArabicDigits(cheque.chequeNumber) : "-" }}</td>
             <td>{{ cheque.bankName || "-" }}</td>
-            <td>{{ formatMoney(chequePaidAmount(cheque)) }}</td>
+            <td>{{ formatMoney(cheque.finalAmount) }}</td>
+            <td>{{ formatReceiptMoney(cheque.actualAmount) }}</td>
+            <td>{{ formatReceiptMoney(cheque.paymentDifference) }}</td>
+            <td><span class="difference-pill" [ngClass]="'difference-' + (cheque.paymentDifferenceType || 'Equal')">{{ displayPaymentDifferenceType(cheque.paymentDifferenceType) }}</span></td>
+            <td>{{ cheque.chequeDate ? formatReportDate(cheque.chequeDate) : 'لم يُستلم' }}</td>
             <td>{{ formatReportDate(cheque.endDate) }}</td>
             <td>
               <span class="days-pill">{{ formatInteger(daysRemaining(cheque.endDate)) }} يوم</span>

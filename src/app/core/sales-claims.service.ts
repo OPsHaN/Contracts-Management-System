@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, Subject, tap } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import {
@@ -23,6 +23,8 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class SalesClaimsService {
+  readonly chequesChanged$ = new Subject<void>();
+
   private readonly apiUrl = environment.apiBaseUrl;
 
   constructor(private readonly http: HttpClient) {}
@@ -121,7 +123,7 @@ export class SalesClaimsService {
   }
 
   createCheques(claimId: string, payload: CreateChequesRequest): Observable<ChequeDto[]> {
-    return this.http.post<ChequeDto[]>(`${this.apiUrl}/cheques/claims/${claimId}`, payload);
+    return this.http.post<ChequeDto[]>(`${this.apiUrl}/cheques/claims/${claimId}`, payload).pipe(tap(() => this.chequesChanged$.next()));
   }
 
   getCheques(companyName?: string, month?: number, year?: number): Observable<ChequeDto[]> {
@@ -142,8 +144,8 @@ export class SalesClaimsService {
     return this.http.get<ChequeDto[]>(`${this.apiUrl}/cheques`, { params });
   }
 
-  updateChequeStatus(chequeId: string, payload: UpdateChequeStatusRequest): Observable<void> {
-    return this.http.patch<void>(`${this.apiUrl}/cheques/${chequeId}/status`, payload);
+  updateChequeStatus(chequeId: string, payload: UpdateChequeStatusRequest): Observable<ChequeDto> {
+    return this.http.patch<ChequeDto>(`${this.apiUrl}/cheques/${chequeId}/status`, payload).pipe(tap(() => this.chequesChanged$.next()));
   }
 
   getUpcomingDueCheques(): Observable<ChequeDto[]> {
